@@ -54,10 +54,19 @@ cd ContReAct-Ollama
 
 # Create virtual environment (recommended)
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Activate virtual environment
+# On Linux/macOS:
+source venv/bin/activate
+# On Windows (Git Bash):
+source venv/Scripts/activate
+# On Windows (Command Prompt):
+venv\Scripts\activate.bat
+# On Windows (PowerShell):
+venv\Scripts\Activate.ps1
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ### Running Your First Experiment
@@ -165,7 +174,7 @@ Contributions are welcome! Please see our [Contributing Guidelines](CONTRIBUTING
 
 ```bash
 # Install development dependencies
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 
 # Run tests
 pytest
