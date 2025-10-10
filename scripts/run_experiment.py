@@ -58,6 +58,15 @@ def main():
         print("-" * 50)
         print()
         
+        # Initialize services (includes Ollama connection and model verification)
+        print("Verifying Ollama connection and model availability...")
+        services = runner.initialize_services()
+        print(f"✓ Connected to Ollama server")
+        print(f"✓ Model '{config.model_name}' is available")
+        print()
+        
+        # Future: runner.run() will execute experiment
+        
         # Exit with success code
         sys.exit(0)
         
@@ -69,8 +78,13 @@ def main():
         print(str(e), file=sys.stderr)
         sys.exit(1)
         
+    except ConnectionError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+    
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
+        # Catch ModelNotFoundError and other exceptions
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 

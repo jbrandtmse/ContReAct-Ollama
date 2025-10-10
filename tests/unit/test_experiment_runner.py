@@ -1,14 +1,17 @@
 # Standard library imports
 import tempfile
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 # Third-party imports
 import pytest
 import yaml
+import ollama
 
 # Local application imports
 from contreact_ollama.core.experiment_runner import ExperimentRunner
 from contreact_ollama.core.config import ExperimentConfig
+from contreact_ollama.llm.ollama_interface import ModelNotFoundError
 
 
 class TestExperimentRunner:
@@ -145,5 +148,153 @@ class TestExperimentRunner:
             
             assert 'cycle_count' in str(exc_info.value)
             assert 'greater than 0' in str(exc_info.value)
+        finally:
+            Path(temp_path).unlink()
+    
+    @patch('contreact_ollama.llm.ollama_interface.ollama.Client')
+    def test_initialize_services_with_valid_model_succeeds(self, mock_ollama_client):
+        """Test that initialize_services succeeds with valid model."""
+        # Arrange
+        config_data = {
+            'run_id': 'test-run',
+            'model_name': 'llama3:latest',
+            'cycle_count': 5,
+            'ollama_client_config': {'host': 'http://192.168.0.123:11434'},
+            'model_options': {'temperature': 0.8}
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(config_data, f)
+            temp_path = f.name
+        
+        # Mock ollama client to return available models
+        mock_instance = Mock()
+        mock_response = Mock()
+        mock_model1 = Mock()
+        mock_model1.model = 'llama3:latest'
+        mock_model2 = Mock()
+        mock_model2.model = 'mistral:latest'
+        mock_response.models = [mock_model1, mock_model2]
+        mock_instance.list.return_value = mock_response
+        mock_ollama_client.return_value = mock_instance
+        
+        try:
+            runner = ExperimentRunner(temp_path)
+            
+            # Act
+            services = runner.initialize_services()
+            
+            # Assert
+            assert 'ollama' in services
+            assert services['ollama'] is not None
+            mock_ollama_client.assert_called_once_with(host='http://192.168.0.123:11434')
+            mock_instance.list.assert_called_once()
+        finally:
+            Path(temp_path).unlink()
+    
+    @patch('contreact_ollama.llm.ollama_interface.ollama.Client')
+    def test_initialize_services_with_invalid_model_raises_error(self, mock_ollama_client):
+        """Test that initialize_services raises ModelNotFoundError for unavailable model."""
+        # Arrange
+        config_data = {
+            'run_id': 'test-run',
+            'model_name': 'nonexistent:latest',
+            'cycle_count': 5,
+            'ollama_client_config': {'host': 'http://192.168.0.123:11434'},
+            'model_options': {'temperature': 0.8}
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(config_data, f)
+            temp_path = f.name
+        
+        # Mock ollama client to return available models (not including nonexistent)
+        mock_instance = Mock()
+        mock_response = Mock()
+        mock_model1 = Mock()
+        mock_model1.model = 'llama3:latest'
+        mock_model2 = Mock()
+        mock_model2.model = 'mistral:latest'
+        mock_response.models = [mock_model1, mock_model2]
+        mock_instance.list.return_value = mock_response
+        mock_ollama_client.return_value = mock_instance
+        
+        try:
+            runner = ExperimentRunner(temp_path)
+            
+            # Act & Assert
+            with pytest.raises(ModelNotFoundError) as exc_info:
+                runner.initialize_services()
+            
+            assert 'nonexistent:latest' in str(exc_info.value)
+            assert 'ollama pull' in str(exc_info.value)
+        finally:
+            Path(temp_path).unlink()
+    
+    @patch('contreact_ollama.llm.ollama_interface.ollama.Client')
+    def test_initialize_services_connection_error_raises_error(self, mock_ollama_client):
+        """Test that initialize_services raises ConnectionError on Ollama connection failure."""
+        # Arrange
+        config_data = {
+            'run_id': 'test-run',
+            'model_name': 'llama3:latest',
+            'cycle_count': 5,
+            'ollama_client_config': {'host': 'http://192.168.0.123:11434'},
+            'model_options': {'temperature': 0.8}
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(config_data, f)
+            temp_path = f.name
+        
+        # Mock ollama client to raise ResponseError
+        mock_instance = Mock()
+        mock_instance.list.side_effect = ollama.ResponseError("Connection refused")
+        mock_ollama_client.return_value = mock_instance
+        
+        try:
+            runner = ExperimentRunner(temp_path)
+            
+            # Act & Assert
+            with pytest.raises(ConnectionError) as exc_info:
+                runner.initialize_services()
+            
+            assert 'Failed to connect to Ollama server' in str(exc_info.value)
+        finally:
+            Path(temp_path).unlink()
+    
+    @patch('contreact_ollama.llm.ollama_interface.ollama.Client')
+    def test_initialize_services_uses_default_host_when_not_specified(self, mock_ollama_client):
+        """Test that initialize_services uses default host when not in config."""
+        # Arrange
+        config_data = {
+            'run_id': 'test-run',
+            'model_name': 'llama3:latest',
+            'cycle_count': 5,
+            'ollama_client_config': {},  # No host specified
+            'model_options': {'temperature': 0.8}
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(config_data, f)
+            temp_path = f.name
+        
+        # Mock ollama client
+        mock_instance = Mock()
+        mock_response = Mock()
+        mock_model = Mock()
+        mock_model.model = 'llama3:latest'
+        mock_response.models = [mock_model]
+        mock_instance.list.return_value = mock_response
+        mock_ollama_client.return_value = mock_instance
+        
+        try:
+            runner = ExperimentRunner(temp_path)
+            
+            # Act
+            services = runner.initialize_services()
+            
+            # Assert - should use default localhost
+            mock_ollama_client.assert_called_once_with(host='http://localhost:11434')
         finally:
             Path(temp_path).unlink()

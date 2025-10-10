@@ -6,14 +6,14 @@ run_id: "llama3-experiment-001"
 
 # Model tag as recognized by local Ollama server
 # Use 'ollama list' to see available models
-model_name: "llama3:latest"
+model_name: "llama3.1:8b"
 
 # Total number of operational cycles to execute
 cycle_count: 10
 
 # Ollama client configuration
 ollama_client_config:
-  host: "http://localhost:11434"  # Ollama server URL
+  host: "http://192.168.0.123:11434"  # Ollama server URL
 
 # LLM generation parameters
 # See Ollama documentation for details on each parameter

@@ -7,6 +7,7 @@ import yaml
 
 # Local application imports
 from contreact_ollama.core.config import ExperimentConfig
+from contreact_ollama.llm.ollama_interface import OllamaInterface
 
 
 class ExperimentRunner:
@@ -112,3 +113,39 @@ class ExperimentRunner:
         
         # Create and return ExperimentConfig
         return ExperimentConfig(**config_dict)
+    
+    def initialize_services(self) -> Dict[str, Any]:
+        """
+        Initialize all required services (Ollama, Logger, Tools, etc.).
+        
+        Returns:
+            Dictionary containing initialized service instances
+            
+        Raises:
+            ConnectionError: If Ollama connection fails
+            ModelNotFoundError: If model not available
+            
+        Example:
+            >>> runner = ExperimentRunner("configs/sample-config.yaml")
+            >>> config = runner.load_config()
+            >>> services = runner.initialize_services()
+            >>> print(services['ollama'])
+            <OllamaInterface object>
+        """
+        # Load config if not already loaded
+        config = self.load_config()
+        
+        services = {}
+        
+        # Initialize Ollama interface
+        host = config.ollama_client_config.get('host', 'http://localhost:11434')
+        ollama_interface = OllamaInterface(host=host)
+        
+        # Verify model availability
+        ollama_interface.verify_model_availability(config.model_name)
+        
+        services['ollama'] = ollama_interface
+        
+        # NOTE: Other services (Logger, Tools, etc.) will be added in later stories
+        
+        return services
