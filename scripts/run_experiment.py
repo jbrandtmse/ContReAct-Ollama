@@ -63,9 +63,9 @@ def main():
         services = runner.initialize_services()
         print(f"✓ Connected to Ollama server")
         print(f"✓ Model '{config.model_name}' is available")
-        print()
         
-        # Future: runner.run() will execute experiment
+        # Run the experiment
+        runner.run()
         
         # Exit with success code
         sys.exit(0)
