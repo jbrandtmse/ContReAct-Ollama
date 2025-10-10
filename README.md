@@ -1,3 +1,8 @@
+> [!WARNING]
+> **🚧 UNDER DEVELOPMENT 🚧**
+> 
+> This project is currently in active development. Features may be incomplete, APIs may change, and documentation may be outdated. Use at your own risk.
+
 # ContReAct-Ollama Experimental Platform
 
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)

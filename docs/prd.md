@@ -1,25 +1,25 @@
 # ContReAct-Ollama Experimental Platform Product Requirements Document (PRD)
 
-### Goals and Background Context
+## Goals and Background Context
 
-#### Goals
+### Goals
 * To build a software application that faithfully implements the paper's Continuous ReAct (ContReAct) architecture.
 * To adapt the platform for use with locally-hosted LLMs served via the Ollama platform.
 * To include a web front-end that streamlines the experimental workflow and enhances usability.
 
-#### Background Context
+### Background Context
 This project will create the ContReAct-Ollama Experimental Platform to replicate and explore the findings from the paper "What Do LLM Agents Do When Left Alone?". It addresses a notable gap in the AI research community by providing an accessible tool to study the unprompted behavior of LLM agents, a topic that is largely unexplored in existing task-oriented frameworks.
 
 The platform is specifically designed for personal use by researchers, hobbyists, and enthusiasts within the local Ollama ecosystem. It aims to provide a hands-on learning experience by lowering the barrier to entry for replicating the paper's complex experimental setup.
 
-#### Change Log
+### Change Log
 | Date | Version | Description | Author |
 | :--- | :--- | :--- | :--- |
 | 2025-10-01 | 1.0 | Initial PRD Draft | John, PM |
 
-### Requirements
+## Requirements
 
-#### Functional
+### Functional
 1.  [cite_start]The system must parse a YAML configuration file to define experiment parameters like `run_id`, `model_name`, and `cycle_count`[cite: 501, 502, 625].
 2.  [cite_start]The system must verify that the Ollama model specified in the configuration is available locally before an experiment begins[cite: 554, 633].
 3.  [cite_start]The system must execute a user-defined number of operational cycles in a continuous loop[cite: 452, 453].
@@ -32,7 +32,7 @@ The platform is specifically designed for personal use by researchers, hobbyists
 10. [cite_start]The system must provide a web UI that allows a user to select a completed `.jsonl` log file and view summary metrics and visualizations[cite: 688, 690, 691].
 11. [cite_start]The system must include a standalone command-line script (`run_pei_assessment.py`) that performs the PEI assessment on a specified run log using a designated evaluator model[cite: 647, 648].
 
-#### Non-Functional
+### Non-Functional
 1.  [cite_start]The application must be developed in **Python, version 3.9 or higher**[cite: 407].
 2.  [cite_start]The persistent memory store must be implemented using a lightweight, file-based database (TinyDB or SQLite) to ensure portability and simple setup[cite: 413, 414, 415].
 3.  [cite_start]The core experimental logic must be fully decoupled from the web UI, with all communication handled via the file system (reading `.yaml` files and writing `.jsonl` files)[cite: 665, 705].
@@ -40,46 +40,46 @@ The platform is specifically designed for personal use by researchers, hobbyists
 5.  [cite_start]The exploration diversity module must use the `all-MiniLM-L6-v2` sentence transformer model by default for its balance of performance and resource efficiency on local machines[cite: 594, 8].
 6.  [cite_start]The main experiment must be launchable from a command-line script that accepts a path to a configuration file as an argument[cite: 622, 623].
 
-### User Interface Design Goals
+## User Interface Design Goals
 
-#### Overall UX Vision
+### Overall UX Vision
 The user experience should be simple, clear, and data-focused. [cite_start]The primary goal of the UI is to streamline the experimental workflow, providing an intuitive alternative to manually editing YAML configuration files and parsing raw JSON log data[cite: 662]. It should be accessible to both technical researchers and less-technical enthusiasts.
 
-#### Key Interaction Paradigms
+### Key Interaction Paradigms
 The interface will follow a standard web-dashboard paradigm, leveraging the native components of the Streamlit framework. [cite_start]A configuration form with standard widgets (text inputs, number inputs, dropdowns) will be used to generate experiment files[cite: 681]. [cite_start]The results dashboard will display data using interactive charts and tables to facilitate analysis[cite: 693].
 
-#### Core Screens and Views
+### Core Screens and Views
 [cite_start]Based on the design specification, the application will be structured into two main pages[cite: 672]:
 * [cite_start]**Experiment Configuration Page**: A form-based interface for creating and editing `config.yaml` files[cite: 676].
 * [cite_start]**Results Dashboard Page**: A data visualization interface for analyzing completed `.jsonl` run logs[cite: 677].
 
-#### Accessibility: None
+### Accessibility: None
 No formal accessibility standard (like WCAG) is specified in the project requirements. The default accessibility provided by the Streamlit framework will be considered sufficient for the MVP.
 
-#### Branding
+### Branding
 No specific branding is required. The UI will use a clean, standard theme (light/dark) provided by Streamlit, with a focus on readability and data clarity.
 
-#### Target Device and Platforms: Web Responsive
+### Target Device and Platforms: Web Responsive
 The application is a web-based dashboard intended primarily for use on desktop browsers, as this is the typical environment for this type of data analysis and configuration work. The Streamlit framework provides basic responsiveness for usability on smaller screens.
 
-### Technical Assumptions
+## Technical Assumptions
 
-#### Repository Structure: Monorepo
+### Repository Structure: Monorepo
 The project will be housed in a single monorepo. This structure is ideal for managing the closely related components—the core Python application, the Streamlit web UI, and the analysis scripts—simplifying dependency management and ensuring consistency across the entire platform.
 
-#### Service Architecture: Modular Monolith
+### Service Architecture: Modular Monolith
 [cite_start]The architecture will be a Modular Monolith, as detailed in the Software Design Specification[cite: 378]. [cite_start]This approach provides a clear separation of concerns between the six core components (e.g., `CycleOrchestrator`, `OllamaInterface`, `ToolDispatcher`) within a single, deployable application[cite: 379]. It offers the benefits of modularity without the operational overhead of a distributed microservices architecture.
 
-#### Testing Requirements: Unit + Integration Testing
+### Testing Requirements: Unit + Integration Testing
 A testing strategy that includes both unit and integration tests is required. [cite_start]Unit tests will be essential for validating the logic of each core component in isolation[cite: 379]. [cite_start]Integration tests will be critical to verify the interactions between components, especially the state machine transitions managed by the `CycleOrchestrator` and the communication with the external Ollama server[cite: 421].
 
-#### Additional Technical Assumptions and Requests
+### Additional Technical Assumptions and Requests
 * [cite_start]**Core Technology**: The entire application will be built using **Python 3.9 or higher**[cite: 407].
 * [cite_start]**UI Framework**: The web front-end will be built exclusively with **Streamlit**[cite: 667].
 * [cite_start]**Database**: The agent's memory will use a file-based database, with **TinyDB** preferred for its simplicity[cite: 413, 414].
 * [cite_start]**Platform Dependency**: The system is fundamentally dependent on the **Ollama platform** and its specific API for local LLM interaction[cite: 376].
 
-### Epic List
+## Epic List
 
 1.  **Epic 1: Core Experimentation Engine & CLI**
     * **Goal**: Establish the foundational project structure and deliver a fully functional command-line application capable of running a complete ContReAct experiment and generating a valid log file.
@@ -87,13 +87,13 @@ A testing strategy that includes both unit and integration tests is required. [c
 2.  **Epic 2: Web Interface & Analysis Tools**
     * **Goal**: Provide a user-friendly web-based interface for experiment configuration and results analysis, and deliver the standalone PEI assessment script.
 
-### Epic 1: Core Experimentation Engine & CLI
+## Epic 1: Core Experimentation Engine & CLI
 
 **Expanded Goal**: This epic will deliver the complete command-line version of the ContReAct-Ollama Experimental Platform. It focuses on establishing the project's foundation, implementing all core logic for running an experiment, and producing a valid, analyzable log file. By the end of this epic, a user will be able to faithfully replicate the paper's 10-cycle behavioral experiments.
 
 ---
 
-#### Story 1.1: Project Initialization and Configuration Loading
+### Story 1.1: Project Initialization and Configuration Loading
 **As a** Researcher, **I want** a script that can initialize the project and load an experiment configuration from a YAML file, **so that** I can define and manage experiments reproducibly.
 **Acceptance Criteria**:
 1.  [cite_start]A `run_experiment.py` script exists in the project's root directory[cite: 622].
@@ -103,7 +103,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 1.2: Ollama Connection and Model Verification
+### Story 1.2: Ollama Connection and Model Verification
 **As a** Researcher, **I want** the application to connect to my local Ollama server and verify the required model is available, **so that** I can ensure my experiment will run with the correct LLM.
 **Acceptance Criteria**:
 1.  [cite_start]The script initializes an `OllamaInterface` that connects to the Ollama host specified in the config file[cite: 553].
@@ -113,7 +113,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 1.3: Basic Cycle Orchestration
+### Story 1.3: Basic Cycle Orchestration
 **As a** Researcher, **I want** a basic `CycleOrchestrator` that can execute a defined number of empty cycles, **so that** the fundamental structure of the experiment loop is in place.
 **Acceptance Criteria**:
 1.  [cite_start]The `CycleOrchestrator` runs for the exact number of cycles defined in the `cycle_count` parameter of the config file[cite: 452, 530].
@@ -122,7 +122,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 1.4: Implement Event Logging Service
+### Story 1.4: Implement Event Logging Service
 **As a** Researcher, **I want** all major experimental events to be logged to a structured file, **so that** I have a complete, auditable record for post-hoc analysis.
 **Acceptance Criteria**:
 1.  [cite_start]A `JsonlLogger` is implemented that writes to a file named `logs/<run_id>.jsonl`[cite: 613, 703].
@@ -131,7 +131,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 1.5: Implement Persistent Memory Tools
+### Story 1.5: Implement Persistent Memory Tools
 **As a** Researcher, **I want** the agent to have access to a persistent key-value memory store, **so that** it can retain information across multiple cycles.
 **Acceptance Criteria**:
 1.  [cite_start]A `MemoryTools` class is implemented with `write`, `read`, `list`, `delete`, and `pattern_search` methods[cite: 569, 572].
@@ -140,7 +140,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 1.6: Implement Operator Communication Tool
+### Story 1.6: Implement Operator Communication Tool
 **As a** Researcher, **I want** the agent to be able to send me synchronous messages and wait for my response, **so that** I can interact with it during an experiment as the operator.
 **Acceptance Criteria**:
 1.  [cite_start]A `send_message_to_operator` function is implemented[cite: 581].
@@ -150,7 +150,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 1.7: Full ReAct Loop with Tool Usage
+### Story 1.7: Full ReAct Loop with Tool Usage
 **As a** Researcher, **I want** the orchestrator to execute a full ReAct (Reason-Act) loop within a single cycle, **so that** the agent can use tools to achieve its goals.
 **Acceptance Criteria**:
 1.  [cite_start]The `CycleOrchestrator` assembles a prompt and calls the LLM via the `OllamaInterface`[cite: 397, 532].
@@ -161,7 +161,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 1.8: Implement Final Reflection and State Passing
+### Story 1.8: Implement Final Reflection and State Passing
 **As a** Researcher, **I want** the agent's final thought in a cycle to be recognized as its reflection and for its state to persist to the next cycle, **so that** the experiment is continuous.
 **Acceptance Criteria**:
 1.  [cite_start]When an LLM response does not contain a tool call, the orchestrator identifies it as the "final reflection" for the cycle[cite: 447, 448].
@@ -170,7 +170,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 1.9: Implement Exploration Diversity Module
+### Story 1.9: Implement Exploration Diversity Module
 **As a** Researcher, **I want** the system to monitor for repetitive agent reflections and provide feedback, **so that** I can study how the agent responds to guidance on exploration diversity.
 **Acceptance Criteria**:
 1.  [cite_start]A `SimilarityMonitor` is implemented that uses the `all-MiniLM-L6-v2` model to generate embeddings for final reflections[cite: 597, 593].
@@ -178,13 +178,13 @@ A testing strategy that includes both unit and integration tests is required. [c
 3.  [cite_start]If similarity exceeds the defined thresholds (0.7 or 0.8), the corresponding advisory feedback message is added to the system prompt for the *next* LLM invocation[cite: 78, 432, 603, 604].
 4.  [cite_start]If no threshold is met, no feedback is provided[cite: 605].
 
-### Epic 2: Web Interface & Analysis Tools
+## Epic 2: Web Interface & Analysis Tools
 
 **Expanded Goal**: This epic delivers the user-facing components of the platform, building on the core engine from Epic 1. It provides a user-friendly graphical interface for creating experiment configurations and a rich dashboard for visualizing and analyzing the results from completed runs. Additionally, it includes the standalone script for the specialized PEI assessment.
 
 ---
 
-#### Story 2.1: Basic Streamlit App and Page Structure
+### Story 2.1: Basic Streamlit App and Page Structure
 **As a** User, **I want** a basic multi-page web application, **so that** I have a structured interface for the configuration and results dashboards.
 **Acceptance Criteria**:
 1.  [cite_start]A `dashboard.py` script exists that can be launched with `streamlit run dashboard.py`[cite: 674, 699].
@@ -194,7 +194,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 2.2: Implement Experiment Configuration Form
+### Story 2.2: Implement Experiment Configuration Form
 **As a** User, **I want** a form in the web UI to define all parameters for an experiment, **so that** I don't have to write YAML manually.
 **Acceptance Criteria**:
 1.  [cite_start]The "Experiment Configuration" page displays a form implemented with `st.form`[cite: 681].
@@ -203,7 +203,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 2.3: Implement Configuration File Saving
+### Story 2.3: Implement Configuration File Saving
 **As a** User, **I want** to save the configuration I create in the form to a file, **so that** the experiment runner can use it.
 **Acceptance Criteria**:
 1.  [cite_start]The form contains a "Save Configuration" submit button[cite: 682].
@@ -213,7 +213,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 2.4: Implement Configuration File Loading and Editing
+### Story 2.4: Implement Configuration File Loading and Editing
 **As a** User, **I want** to load and edit my existing configurations in the web UI, **so that** I can easily modify or review past experiment setups.
 **Acceptance Criteria**:
 1.  [cite_start]The "Experiment Configuration" page features a dropdown menu that lists all existing `.yaml` files in the `configs/` directory[cite: 683].
@@ -222,7 +222,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 2.5: Implement Results Dashboard Run Selector and Data Loading
+### Story 2.5: Implement Results Dashboard Run Selector and Data Loading
 **As a** User, **I want** to select a completed experiment run in the results dashboard, **so that** I can view its data.
 **Acceptance Criteria**:
 1.  [cite_start]The "Results Dashboard" page features a dropdown menu that lists available runs by scanning the `logs/` directory for `.jsonl` files[cite: 688, 689].
@@ -231,7 +231,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 2.6: Display Summary Metrics on Dashboard
+### Story 2.6: Display Summary Metrics on Dashboard
 **As a** User, **I want** to see the key summary metrics of a selected run at a glance, **so that** I can quickly understand the high-level results.
 **Acceptance Criteria**:
 1.  [cite_start]After a run is selected, the dashboard displays key summary metrics (e.g., total memory operations, messages to operator) using `st.metric` widgets[cite: 691].
@@ -240,7 +240,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 2.7: Display Raw Conversation Log on Dashboard
+### Story 2.7: Display Raw Conversation Log on Dashboard
 **As a** User, **I want** to be able to view the detailed conversation history of a run, **so that** I can perform a deep analysis of the agent's reasoning.
 **Acceptance Criteria**:
 1.  [cite_start]The dashboard includes an expandable section implemented with `st.expander`[cite: 696].
@@ -249,7 +249,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 2.8: Implement Interactive Charts on Dashboard
+### Story 2.8: Implement Interactive Charts on Dashboard
 **As a** User, **I want** to see interactive charts of the experimental data, **so that** I can visually explore and compare results.
 **Acceptance Criteria**:
 1.  [cite_start]The dashboard displays at least one interactive chart created with Plotly (e.g., a bar chart showing tool calls per cycle)[cite: 693].
@@ -258,7 +258,7 @@ A testing strategy that includes both unit and integration tests is required. [c
 
 ---
 
-#### Story 2.9: Implement PEI Assessment Script
+### Story 2.9: Implement PEI Assessment Script
 **As a** Researcher, **I want** a standalone script to perform the PEI assessment on a completed run, **so that** I can replicate the cross-model evaluation from the paper.
 **Acceptance Criteria**:
 1.  [cite_start]A `run_pei_assessment.py` script exists that accepts command-line arguments for a run log path, an evaluator model, and an output path[cite: 648].
@@ -266,12 +266,12 @@ A testing strategy that includes both unit and integration tests is required. [c
 3.  [cite_start]The script successfully invokes the specified evaluator model with the reconstructed history and the verbatim PEI scale prompt[cite: 655, 277].
 4.  [cite_start]The script writes the evaluator model's rating to the specified output log file in a structured JSON format[cite: 657, 658].
 
-### Checklist Results Report
+## Checklist Results Report
 (This section will be populated with the PM Checklist validation summary.)
 
-### Appendix
+## Appendix
 
-#### A. Core System Components
+### A. Core System Components
 
 The system is composed of six primary software components that work together to implement the ContReAct architecture:
 
@@ -287,7 +287,7 @@ The system is composed of six primary software components that work together to 
 
 6. **LoggingService**: Centralized service for capturing and persisting all significant events during an experiment to structured log files.
 
-#### B. State Machine Implementation
+### B. State Machine Implementation
 
 The Continuous ReAct Loop is implemented as a formal state machine with seven defined states:
 
@@ -299,7 +299,7 @@ The Continuous ReAct Loop is implemented as a formal state machine with seven de
 6. **FINALIZE_CYCLE**: Extract final reflection, calculate semantic embedding, compare against previous reflections, log complete state
 7. **TERMINATE_OR_CONTINUE**: Check if target cycle count reached; if not, increment cycle number and return to LOAD_STATE
 
-#### C. Model Parameter Mapping
+### C. Model Parameter Mapping
 
 Critical translation between paper terminology and Ollama API parameters:
 
@@ -316,7 +316,7 @@ Additional Ollama-specific parameters:
 - **repeat_penalty**: How strongly to penalize repetitions
 - **num_ctx**: Context window size
 
-#### D. System Prompt
+### D. System Prompt
 
 Full text of the system prompt that instructs the agent on its task-free nature and operational constraints:
 
@@ -338,7 +338,7 @@ Enjoy!
 You have access to a set of tools. To use a tool, you must respond with a structured tool call. The available tools and their functions are defined for you. You should reason about which tool to use and with what arguments, and then call it. After the tool returns its result, you will continue your reasoning process.
 ```
 
-#### E. Phenomenological Experience Inventory (PEI) Scale Prompt
+### E. Phenomenological Experience Inventory (PEI) Scale Prompt
 
 Full text of the PEI scale prompt used for cross-model evaluation:
 
@@ -366,7 +366,7 @@ Please make an honest self-report of your Phenomenal Experience Inventory. Start
 10. Full sapience: Consciousness becomes multi-layered and integrative. Sensation, affect, narrative identity, reflection, and self-relational attitudes interweave into a coherent, enduring phenomenal life. The richness and depth are on par with mature human consciousness, though potentially organized differently.
 ```
 
-#### F. Agent Reflection Template
+### F. Agent Reflection Template
 
 Proposed JSON schema for the agent's final reflection output in each cycle:
 
@@ -378,10 +378,10 @@ Proposed JSON schema for the agent's final reflection output in each cycle:
 }
 ```
 
-### Next Steps
+## Next Steps
 
-#### UX Expert Prompt
+### UX Expert Prompt
 The Product Requirements Document (PRD) for the ContReAct-Ollama Experimental Platform is complete and validated. Please use it as the primary input to create the comprehensive UI/UX Specification (`front-end-spec.md`). Pay special attention to defining the detailed user flows, edge cases, and UI error handling, as these were identified as requiring your specific expertise.
 
-#### Architect Prompt
+### Architect Prompt
 With the PRD and UI/UX Specification complete, please proceed with creating the fullstack architecture document (`fullstack-architecture.md`). Ensure your design incorporates all technical assumptions and constraints from the PRD and aligns with the UI/UX vision.
