@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Callable
 
 # Local application imports
 from contreact_ollama.tools.memory_tools import MemoryTools
+from contreact_ollama.tools.operator_communication import send_message_to_operator
 
 
 class ToolDispatcher:
@@ -31,9 +32,6 @@ class ToolDispatcher:
         
         Args:
             memory_tools: Instance of MemoryTools for persistent storage
-            
-        Note:
-            send_message_to_operator will be added in Story 1.7
         """
         self.memory_tools = memory_tools
         
@@ -44,7 +42,7 @@ class ToolDispatcher:
             "list": self.memory_tools.list,
             "delete": self.memory_tools.delete,
             "pattern_search": self.memory_tools.pattern_search,
-            # send_message_to_operator will be added in Story 1.7
+            "send_message_to_operator": send_message_to_operator
         }
         
     def dispatch(self, tool_name: str, arguments: Dict[str, Any]) -> str:
@@ -165,6 +163,23 @@ class ToolDispatcher:
                             }
                         },
                         "required": ["pattern"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "send_message_to_operator",
+                    "description": "Send a synchronous message to the human operator and wait for their response. Use this to ask questions, report findings, or request guidance.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "The message to send to the operator. Should be a clear question or statement."
+                            }
+                        },
+                        "required": ["message"]
                     }
                 }
             }

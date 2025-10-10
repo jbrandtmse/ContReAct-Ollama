@@ -132,11 +132,11 @@ def test_dispatch_wrong_argument_names_returns_error(tool_dispatcher):
 
 
 def test_get_tool_definitions_returns_all_tools(tool_dispatcher):
-    """Test that get_tool_definitions() returns all 5 tools."""
+    """Test that get_tool_definitions() returns all 6 tools."""
     definitions = tool_dispatcher.get_tool_definitions()
     
-    # Assert 5 tool definitions returned
-    assert len(definitions) == 5
+    # Assert 6 tool definitions returned
+    assert len(definitions) == 6
     
     # Extract tool names
     tool_names = [defn["function"]["name"] for defn in definitions]
@@ -147,6 +147,7 @@ def test_get_tool_definitions_returns_all_tools(tool_dispatcher):
     assert "list" in tool_names
     assert "delete" in tool_names
     assert "pattern_search" in tool_names
+    assert "send_message_to_operator" in tool_names
 
 
 def test_get_tool_definitions_follows_ollama_format(tool_dispatcher):
@@ -237,3 +238,30 @@ def test_pattern_search_tool_definition_has_correct_schema(tool_dispatcher):
     params = search_def["function"]["parameters"]
     assert "pattern" in params["properties"]
     assert params["required"] == ["pattern"]
+
+
+def test_dispatch_calls_send_message_to_operator_tool(tool_dispatcher):
+    """Test that dispatch() correctly calls send_message_to_operator tool."""
+    with patch('builtins.print'), \
+         patch('builtins.input', return_value='operator response'):
+        
+        result = tool_dispatcher.dispatch("send_message_to_operator", {"message": "test message"})
+        
+        # Assert operator's response returned
+        assert result == "operator response"
+
+
+def test_send_message_to_operator_tool_definition_has_correct_schema(tool_dispatcher):
+    """Test that send_message_to_operator tool has correct parameter schema."""
+    definitions = tool_dispatcher.get_tool_definitions()
+    
+    # Find send_message_to_operator tool
+    operator_def = next(d for d in definitions if d["function"]["name"] == "send_message_to_operator")
+    
+    # Assert parameters
+    params = operator_def["function"]["parameters"]
+    assert "message" in params["properties"]
+    assert params["required"] == ["message"]
+    
+    # Assert description is helpful
+    assert "operator" in operator_def["function"]["description"].lower()
