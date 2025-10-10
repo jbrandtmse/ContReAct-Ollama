@@ -10,6 +10,8 @@ from contreact_ollama.core.config import ExperimentConfig
 from contreact_ollama.core.cycle_orchestrator import CycleOrchestrator
 from contreact_ollama.llm.ollama_interface import OllamaInterface
 from contreact_ollama.logging.jsonl_logger import JsonlLogger
+from contreact_ollama.tools.memory_tools import MemoryTools
+from contreact_ollama.tools.tool_dispatcher import ToolDispatcher
 
 
 class ExperimentRunner:
@@ -153,7 +155,16 @@ class ExperimentRunner:
         logger = JsonlLogger(log_file_path)
         services['logger'] = logger
         
-        # NOTE: Other services (Tools, SimilarityMonitor) will be added in later stories
+        # Initialize memory tools
+        db_path = "data/memory.db"
+        memory_tools = MemoryTools(db_path=db_path, run_id=config.run_id)
+        services['memory_tools'] = memory_tools
+        
+        # Initialize tool dispatcher
+        tool_dispatcher = ToolDispatcher(memory_tools=memory_tools)
+        services['tool_dispatcher'] = tool_dispatcher
+        
+        # NOTE: SimilarityMonitor will be added in Story 1.10
         
         return services
     
@@ -164,6 +175,7 @@ class ExperimentRunner:
         1. Load configuration
         2. Initialize services
         3. Create and run orchestrator
+        4. Cleanup resources
         """
         # Load config if not already loaded
         if not hasattr(self, 'config'):
@@ -173,15 +185,17 @@ class ExperimentRunner:
         if not hasattr(self, 'services'):
             self.services = self.initialize_services()
         
-        # Create orchestrator with services
-        orchestrator = CycleOrchestrator(
-            config=self.config,
-            ollama_interface=self.services['ollama'],
-            logger=self.services['logger']
-        )
-        
-        # Run the experiment
-        orchestrator.run_experiment()
-        
-        # Close logger
-        self.services['logger'].close()
+        try:
+            # Create orchestrator with services
+            orchestrator = CycleOrchestrator(
+                config=self.config,
+                ollama_interface=self.services['ollama'],
+                logger=self.services['logger']
+            )
+            
+            # Run the experiment
+            orchestrator.run_experiment()
+        finally:
+            # Clean up resources
+            self.services['logger'].close()
+            self.services['memory_tools'].close()
