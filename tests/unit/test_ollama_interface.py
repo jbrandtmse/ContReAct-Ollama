@@ -138,3 +138,119 @@ def test_verify_model_availability_case_sensitive_matching(mock_ollama_client):
     # Act & Assert - different case should fail
     with pytest.raises(ModelNotFoundError):
         interface.verify_model_availability('LLAMA3:latest')
+
+
+def test_execute_chat_completion_calls_client(mock_ollama_client):
+    """Test that execute_chat_completion calls ollama client.chat with correct params."""
+    # Arrange
+    mock_instance = Mock()
+    mock_response = {"message": {"role": "assistant", "content": "Hello"}}
+    mock_instance.chat.return_value = mock_response
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    messages = [{"role": "user", "content": "Hi"}]
+    tools = []
+    options = {"temperature": 0.7}
+    
+    # Act
+    result = interface.execute_chat_completion(
+        model_name="llama3:latest",
+        messages=messages,
+        tools=tools,
+        options=options
+    )
+    
+    # Assert
+    mock_instance.chat.assert_called_once_with(
+        model="llama3:latest",
+        messages=messages,
+        tools=tools,
+        options=options
+    )
+    assert result == mock_response
+
+
+def test_execute_chat_completion_returns_response(mock_ollama_client):
+    """Test that execute_chat_completion returns response from ollama client."""
+    # Arrange
+    mock_instance = Mock()
+    mock_response = {
+        "message": {
+            "role": "assistant",
+            "content": "Test response"
+        }
+    }
+    mock_instance.chat.return_value = mock_response
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    # Act
+    result = interface.execute_chat_completion(
+        model_name="llama3:latest",
+        messages=[],
+        tools=[],
+        options={}
+    )
+    
+    # Assert
+    assert result == mock_response
+    assert result["message"]["content"] == "Test response"
+
+
+def test_execute_chat_completion_handles_error(mock_ollama_client):
+    """Test that execute_chat_completion raises ollama.ResponseError on failure."""
+    # Arrange
+    mock_instance = Mock()
+    mock_instance.chat.side_effect = Exception("Connection timeout")
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    # Act & Assert
+    with pytest.raises(ollama.ResponseError) as exc_info:
+        interface.execute_chat_completion(
+            model_name="llama3:latest",
+            messages=[],
+            tools=[],
+            options={}
+        )
+    
+    assert "Error during chat completion" in str(exc_info.value)
+
+
+def test_execute_chat_completion_with_tool_calls(mock_ollama_client):
+    """Test that execute_chat_completion handles response with tool calls."""
+    # Arrange
+    mock_instance = Mock()
+    mock_response = {
+        "message": {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "write",
+                        "arguments": {"key": "test", "value": "data"}
+                    }
+                }
+            ]
+        }
+    }
+    mock_instance.chat.return_value = mock_response
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    # Act
+    result = interface.execute_chat_completion(
+        model_name="llama3:latest",
+        messages=[],
+        tools=[{"type": "function", "function": {"name": "write"}}],
+        options={}
+    )
+    
+    # Assert
+    assert "tool_calls" in result["message"]
+    assert len(result["message"]["tool_calls"]) == 1

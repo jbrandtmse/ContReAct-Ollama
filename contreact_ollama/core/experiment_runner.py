@@ -190,6 +190,7 @@ class ExperimentRunner:
             orchestrator = CycleOrchestrator(
                 config=self.config,
                 ollama_interface=self.services['ollama'],
+                tool_dispatcher=self.services['tool_dispatcher'],
                 logger=self.services['logger']
             )
             

@@ -88,3 +88,45 @@ class OllamaInterface:
                 f"Failed to connect to Ollama server: {e}. "
                 "Please ensure Ollama is running with: ollama serve"
             )
+    
+    def execute_chat_completion(
+        self,
+        model_name: str,
+        messages: List[Dict],
+        tools: List[Dict],
+        options: Dict
+    ) -> Dict:
+        """
+        Execute LLM chat completion.
+        
+        Args:
+            model_name: Tag of model to use (e.g., 'llama3:latest')
+            messages: Message history in Ollama chat format
+            tools: Tool definitions in JSON schema format
+            options: Generation parameters (temperature, seed, etc.)
+            
+        Returns:
+            Response object from ollama.chat containing message and optional tool_calls
+            
+        Raises:
+            ollama.ResponseError: On connection or model errors
+            
+        Example:
+            >>> interface = OllamaInterface()
+            >>> response = interface.execute_chat_completion(
+            ...     model_name="llama3:latest",
+            ...     messages=[{"role": "user", "content": "Hello"}],
+            ...     tools=[],
+            ...     options={"temperature": 0.7}
+            ... )
+        """
+        try:
+            response = self.client.chat(
+                model=model_name,
+                messages=messages,
+                tools=tools,
+                options=options
+            )
+            return response
+        except Exception as e:
+            raise ollama.ResponseError(f"Error during chat completion: {e}")
