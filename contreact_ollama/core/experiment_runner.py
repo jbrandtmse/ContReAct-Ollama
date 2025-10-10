@@ -9,6 +9,7 @@ import yaml
 from contreact_ollama.core.config import ExperimentConfig
 from contreact_ollama.core.cycle_orchestrator import CycleOrchestrator
 from contreact_ollama.llm.ollama_interface import OllamaInterface
+from contreact_ollama.logging.jsonl_logger import JsonlLogger
 
 
 class ExperimentRunner:
@@ -147,7 +148,12 @@ class ExperimentRunner:
         
         services['ollama'] = ollama_interface
         
-        # NOTE: Other services (Logger, Tools, etc.) will be added in later stories
+        # Initialize logger
+        log_file_path = f"logs/{config.run_id}.jsonl"
+        logger = JsonlLogger(log_file_path)
+        services['logger'] = logger
+        
+        # NOTE: Other services (Tools, SimilarityMonitor) will be added in later stories
         
         return services
     
@@ -167,12 +173,15 @@ class ExperimentRunner:
         if not hasattr(self, 'services'):
             self.services = self.initialize_services()
         
-        # Create orchestrator with minimal services for now
+        # Create orchestrator with services
         orchestrator = CycleOrchestrator(
             config=self.config,
-            ollama_interface=self.services['ollama']
-            # NOTE: logger, tools, similarity_monitor will be added in later stories
+            ollama_interface=self.services['ollama'],
+            logger=self.services['logger']
         )
         
         # Run the experiment
         orchestrator.run_experiment()
+        
+        # Close logger
+        self.services['logger'].close()

@@ -4,6 +4,7 @@ from typing import Optional
 # Local application imports
 from contreact_ollama.core.config import ExperimentConfig
 from contreact_ollama.llm.ollama_interface import OllamaInterface
+from contreact_ollama.logging.jsonl_logger import JsonlLogger, EventType
 from contreact_ollama.state.agent_state import AgentState
 
 
@@ -21,27 +22,40 @@ class CycleOrchestrator:
     def __init__(
         self,
         config: ExperimentConfig,
-        ollama_interface: OllamaInterface
+        ollama_interface: OllamaInterface,
+        logger: Optional[JsonlLogger] = None
     ) -> None:
         """Initialize orchestrator with configuration and services.
         
         Args:
             config: Experiment configuration with run parameters
             ollama_interface: Interface for Ollama LLM interactions
+            logger: Event logger (optional for now, required in production)
         """
         self.config = config
         self.ollama_interface = ollama_interface
+        self.logger = logger
     
     def run_experiment(self) -> None:
         """Main public method executing full experimental run from Cycle 1 to cycle_count.
         
         Iterates through cycles, executing each one and tracking completion.
+        Logs CYCLE_START and CYCLE_END events for each cycle.
         """
         print(f"\nStarting experiment: {self.config.run_id}")
         print(f"Model: {self.config.model_name}")
         print(f"Total cycles: {self.config.cycle_count}\n")
         
         for cycle_num in range(1, self.config.cycle_count + 1):
+            # Log cycle start
+            if self.logger:
+                self.logger.log_event(
+                    run_id=self.config.run_id,
+                    cycle_number=cycle_num,
+                    event_type=EventType.CYCLE_START,
+                    payload={}
+                )
+            
             print(f"Cycle {cycle_num} starting...")
             
             # Load state for this cycle
@@ -51,9 +65,20 @@ class CycleOrchestrator:
             agent_state = self._execute_cycle(agent_state)
             
             print(f"Cycle {cycle_num} finished.")
+            
+            # Log cycle end
+            if self.logger:
+                self.logger.log_event(
+                    run_id=self.config.run_id,
+                    cycle_number=cycle_num,
+                    event_type=EventType.CYCLE_END,
+                    payload={}
+                )
         
         print(f"\n✓ Experiment {self.config.run_id} completed successfully")
         print(f"✓ Executed {self.config.cycle_count} cycles")
+        if self.logger:
+            print(f"✓ Log file: logs/{self.config.run_id}.jsonl")
     
     def _execute_cycle(self, agent_state: AgentState) -> AgentState:
         """Execute a single cycle of the ContReAct state machine.
