@@ -106,7 +106,7 @@ class OllamaInterface:
             options: Generation parameters (temperature, seed, etc.)
             
         Returns:
-            Response object from ollama.chat containing message and optional tool_calls
+            Dict with 'message' key containing role, content, and optional tool_calls
             
         Raises:
             ollama.ResponseError: On connection or model errors
@@ -127,6 +127,28 @@ class OllamaInterface:
                 tools=tools,
                 options=options
             )
-            return response
+            
+            # Convert ChatResponse object to dict format
+            # The response object has a 'message' attribute with role, content, tool_calls
+            message_dict = {
+                "role": response.message.role,
+                "content": response.message.content or ""
+            }
+            
+            # Include tool_calls if present
+            if hasattr(response.message, 'tool_calls') and response.message.tool_calls:
+                message_dict["tool_calls"] = [
+                    {
+                        "id": getattr(tc, 'id', None),
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    }
+                    for tc in response.message.tool_calls
+                ]
+            
+            return {"message": message_dict}
+            
         except Exception as e:
             raise ollama.ResponseError(f"Error during chat completion: {e}")

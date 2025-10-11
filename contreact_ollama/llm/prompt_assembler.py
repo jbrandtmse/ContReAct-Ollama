@@ -39,6 +39,28 @@ def build_prompt(
     # Construct system prompt
     full_system_prompt = system_prompt
     
+    # Append tool definitions so agent knows what tools are available
+    if tool_definitions:
+        full_system_prompt += "\n\n## Available Tools\n"
+        full_system_prompt += "You have access to the following tools:\n\n"
+        for tool in tool_definitions:
+            tool_name = tool.get("function", {}).get("name", "unknown")
+            tool_desc = tool.get("function", {}).get("description", "No description")
+            tool_params = tool.get("function", {}).get("parameters", {})
+            
+            full_system_prompt += f"### {tool_name}\n"
+            full_system_prompt += f"{tool_desc}\n\n"
+            
+            # Add parameter details
+            if tool_params.get("properties"):
+                full_system_prompt += "Parameters:\n"
+                for param_name, param_info in tool_params["properties"].items():
+                    param_type = param_info.get("type", "unknown")
+                    param_desc = param_info.get("description", "")
+                    required = "required" if param_name in tool_params.get("required", []) else "optional"
+                    full_system_prompt += f"  - {param_name} ({param_type}, {required}): {param_desc}\n"
+                full_system_prompt += "\n"
+    
     # Append reflection history from previous cycles if available
     if agent_state.reflection_history:
         reflection_context = "\n\n## Your Previous Reflections\n"
