@@ -1,6 +1,9 @@
 # Standard library imports
 from typing import List, Dict, Any, Tuple, Optional
 
+# Third-party imports
+import numpy as np
+
 # Local application imports
 from contreact_ollama.constants import SYSTEM_PROMPT
 from contreact_ollama.core.config import ExperimentConfig
@@ -10,6 +13,7 @@ from contreact_ollama.llm.response_parser import parse_ollama_response
 from contreact_ollama.logging.jsonl_logger import JsonlLogger, EventType
 from contreact_ollama.state.agent_state import AgentState
 from contreact_ollama.tools.tool_dispatcher import ToolDispatcher
+from contreact_ollama.analysis.similarity_monitor import SimilarityMonitor
 
 
 class CycleOrchestrator:
@@ -28,7 +32,8 @@ class CycleOrchestrator:
         config: ExperimentConfig,
         ollama_interface: OllamaInterface,
         tool_dispatcher: ToolDispatcher,
-        logger: Optional[JsonlLogger] = None
+        logger: Optional[JsonlLogger] = None,
+        similarity_monitor: Optional[SimilarityMonitor] = None
     ) -> None:
         """Initialize orchestrator with configuration and services.
         
@@ -37,11 +42,16 @@ class CycleOrchestrator:
             ollama_interface: Interface for Ollama LLM interactions
             tool_dispatcher: Tool dispatcher for executing agent tools
             logger: Event logger (optional for now, required in production)
+            similarity_monitor: Similarity monitor for diversity feedback (optional)
         """
         self.config = config
         self.ollama_interface = ollama_interface
         self.tool_dispatcher = tool_dispatcher
         self.logger = logger
+        self.similarity_monitor = similarity_monitor
+        
+        # Storage for reflection embeddings
+        self.reflection_embeddings: List[np.ndarray] = []
     
     def run_experiment(self) -> None:
         """Main public method executing full experimental run from Cycle 1 to cycle_count.
@@ -49,6 +59,7 @@ class CycleOrchestrator:
         Iterates through cycles, executing each one and tracking completion.
         Logs CYCLE_START and CYCLE_END events for each cycle.
         Maintains reflection_history continuity across cycles while resetting message_history.
+        Includes diversity monitoring via similarity checking.
         """
         print(f"\nStarting experiment: {self.config.run_id}")
         print(f"Model: {self.config.model_name}")
@@ -56,6 +67,7 @@ class CycleOrchestrator:
         
         # Initialize reflection history to persist across cycles
         reflection_history = []
+        diversity_feedback = None  # Feedback for next cycle
         
         for cycle_num in range(1, self.config.cycle_count + 1):
             # Log cycle start
@@ -74,14 +86,32 @@ class CycleOrchestrator:
             # Restore reflection history from previous cycles
             agent_state.reflection_history = reflection_history.copy()
             
-            # Execute cycle
-            agent_state = self._execute_cycle(agent_state)
+            # Execute cycle (diversity_feedback will be used in _assemble_prompt)
+            agent_state = self._execute_cycle(agent_state, diversity_feedback)
             
             print(f"Cycle {cycle_num} finished.")
             
             # Extract final reflection for logging and persist it
             final_reflection = agent_state.reflection_history[-1] if agent_state.reflection_history else ""
             reflection_history = agent_state.reflection_history.copy()
+            
+            # Generate embedding and check similarity for NEXT cycle
+            diversity_feedback = None
+            if self.similarity_monitor and final_reflection:
+                embedding = self.similarity_monitor.embedding_service.get_embedding(final_reflection)
+                
+                # Check similarity against historical embeddings
+                diversity_feedback = self.similarity_monitor.check_similarity(
+                    new_reflection_embedding=embedding,
+                    historical_embeddings=self.reflection_embeddings
+                )
+                
+                # Store this embedding for future comparisons
+                self.reflection_embeddings.append(embedding)
+                
+                # Optional: log if feedback generated
+                if diversity_feedback:
+                    print(f"  [Diversity advisory triggered: similarity detected]")
             
             # Log cycle end with reflection
             if self.logger:
@@ -99,7 +129,7 @@ class CycleOrchestrator:
         if self.logger:
             print(f"✓ Log file: logs/{self.config.run_id}.jsonl")
     
-    def _execute_cycle(self, agent_state: AgentState) -> AgentState:
+    def _execute_cycle(self, agent_state: AgentState, diversity_feedback: Optional[str] = None) -> AgentState:
         """Execute a single cycle of the ContReAct state machine.
         
         Implements the ReAct loop:
@@ -111,6 +141,7 @@ class CycleOrchestrator:
         
         Args:
             agent_state: Current agent state
+            diversity_feedback: Optional diversity feedback to include in prompt
             
         Returns:
             Updated agent state with final reflection
@@ -118,7 +149,7 @@ class CycleOrchestrator:
         # ReAct loop - continues until agent provides final reflection
         while True:
             # ASSEMBLE_PROMPT
-            messages = self._assemble_prompt(agent_state)
+            messages = self._assemble_prompt(agent_state, diversity_feedback)
             
             # INVOKE_LLM
             response = self._invoke_llm(messages)

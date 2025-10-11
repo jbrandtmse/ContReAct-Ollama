@@ -12,6 +12,8 @@ from contreact_ollama.llm.ollama_interface import OllamaInterface
 from contreact_ollama.logging.jsonl_logger import JsonlLogger
 from contreact_ollama.tools.memory_tools import MemoryTools
 from contreact_ollama.tools.tool_dispatcher import ToolDispatcher
+from contreact_ollama.analysis.embedding_service import EmbeddingService
+from contreact_ollama.analysis.similarity_monitor import SimilarityMonitor
 
 
 class ExperimentRunner:
@@ -164,7 +166,12 @@ class ExperimentRunner:
         tool_dispatcher = ToolDispatcher(memory_tools=memory_tools)
         services['tool_dispatcher'] = tool_dispatcher
         
-        # NOTE: SimilarityMonitor will be added in Story 1.10
+        # Initialize embedding service and similarity monitor
+        embedding_service = EmbeddingService()
+        services['embedding_service'] = embedding_service
+        
+        similarity_monitor = SimilarityMonitor(embedding_service=embedding_service)
+        services['similarity_monitor'] = similarity_monitor
         
         return services
     
@@ -191,7 +198,8 @@ class ExperimentRunner:
                 config=self.config,
                 ollama_interface=self.services['ollama'],
                 tool_dispatcher=self.services['tool_dispatcher'],
-                logger=self.services['logger']
+                logger=self.services['logger'],
+                similarity_monitor=self.services['similarity_monitor']
             )
             
             # Run the experiment

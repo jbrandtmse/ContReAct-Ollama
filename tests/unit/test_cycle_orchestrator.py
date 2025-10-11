@@ -129,7 +129,7 @@ def test_run_experiment_executes_correct_number_of_cycles(
     )
     
     # Mock _execute_cycle to track calls
-    orchestrator._execute_cycle = MagicMock(side_effect=lambda state: state)
+    orchestrator._execute_cycle = MagicMock(side_effect=lambda state, diversity_feedback=None: state)
     
     # Run experiment (cycle_count=3)
     orchestrator.run_experiment()
@@ -160,7 +160,7 @@ def test_run_experiment_executes_cycles_in_order(
     orchestrator._load_state = track_load_state
     
     # Mock _execute_cycle to bypass ReAct loop
-    orchestrator._execute_cycle = MagicMock(side_effect=lambda state: state)
+    orchestrator._execute_cycle = MagicMock(side_effect=lambda state, diversity_feedback=None: state)
     
     # Run experiment (cycle_count=3)
     orchestrator.run_experiment()
@@ -183,7 +183,7 @@ def test_run_experiment_with_single_cycle(mock_ollama_interface):
     )
     
     # Mock _execute_cycle
-    orchestrator._execute_cycle = MagicMock(side_effect=lambda state: state)
+    orchestrator._execute_cycle = MagicMock(side_effect=lambda state, diversity_feedback=None: state)
     
     # Run experiment
     orchestrator.run_experiment()
@@ -206,7 +206,7 @@ def test_run_experiment_with_many_cycles(mock_ollama_interface):
     )
     
     # Mock _execute_cycle
-    orchestrator._execute_cycle = MagicMock(side_effect=lambda state: state)
+    orchestrator._execute_cycle = MagicMock(side_effect=lambda state, diversity_feedback=None: state)
     
     # Run experiment
     orchestrator.run_experiment()
@@ -224,7 +224,7 @@ def test_run_experiment_console_output(mock_config, mock_ollama_interface, capsy
     )
     
     # Mock _execute_cycle to bypass ReAct loop
-    orchestrator._execute_cycle = MagicMock(side_effect=lambda state: state)
+    orchestrator._execute_cycle = MagicMock(side_effect=lambda state, diversity_feedback=None: state)
     
     # Run experiment
     orchestrator.run_experiment()
@@ -262,7 +262,7 @@ def test_run_experiment_passes_reflection_history_between_cycles(
     # Track agent_state BEFORE modification
     initial_states = []
     
-    def mock_execute_cycle(state):
+    def mock_execute_cycle(state, diversity_feedback=None):
         # Capture initial state (before modification)
         initial_states.append({
             "cycle_number": state.cycle_number,
@@ -310,7 +310,7 @@ def test_run_experiment_logs_cycle_end_with_reflection(mock_config, mock_ollama_
     )
     
     # Mock _execute_cycle to add reflection to agent_state
-    def mock_execute_cycle(state):
+    def mock_execute_cycle(state, diversity_feedback=None):
         state.reflection_history.append(f"Final reflection for cycle {state.cycle_number}")
         return state
     
@@ -349,7 +349,7 @@ def test_run_experiment_empty_reflection_handled(mock_config, mock_ollama_interf
     )
     
     # Mock _execute_cycle to NOT add reflection
-    def mock_execute_cycle(state):
+    def mock_execute_cycle(state, diversity_feedback=None):
         # Don't add any reflection
         return state
     
@@ -384,7 +384,7 @@ def test_cycle_number_increments_correctly(mock_config, mock_ollama_interface):
     # Track cycle numbers
     cycle_numbers = []
     
-    def mock_execute_cycle(state):
+    def mock_execute_cycle(state, diversity_feedback=None):
         cycle_numbers.append(state.cycle_number)
         return state
     
@@ -410,7 +410,7 @@ def test_message_history_resets_each_cycle(mock_config, mock_ollama_interface):
     # Track message_history at start of each cycle
     initial_message_histories = []
     
-    def mock_execute_cycle(state):
+    def mock_execute_cycle(state, diversity_feedback=None):
         # Record initial message_history
         initial_message_histories.append(len(state.message_history))
         # Add some messages during cycle
