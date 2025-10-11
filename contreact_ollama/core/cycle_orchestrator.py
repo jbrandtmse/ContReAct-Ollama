@@ -48,10 +48,14 @@ class CycleOrchestrator:
         
         Iterates through cycles, executing each one and tracking completion.
         Logs CYCLE_START and CYCLE_END events for each cycle.
+        Maintains reflection_history continuity across cycles while resetting message_history.
         """
         print(f"\nStarting experiment: {self.config.run_id}")
         print(f"Model: {self.config.model_name}")
         print(f"Total cycles: {self.config.cycle_count}\n")
+        
+        # Initialize reflection history to persist across cycles
+        reflection_history = []
         
         for cycle_num in range(1, self.config.cycle_count + 1):
             # Log cycle start
@@ -65,21 +69,29 @@ class CycleOrchestrator:
             
             print(f"Cycle {cycle_num} starting...")
             
-            # Load state for this cycle
+            # Load state for this cycle - always fresh message_history
             agent_state = self._load_state(cycle_num)
+            # Restore reflection history from previous cycles
+            agent_state.reflection_history = reflection_history.copy()
             
-            # Execute cycle (empty for now)
+            # Execute cycle
             agent_state = self._execute_cycle(agent_state)
             
             print(f"Cycle {cycle_num} finished.")
             
-            # Log cycle end
+            # Extract final reflection for logging and persist it
+            final_reflection = agent_state.reflection_history[-1] if agent_state.reflection_history else ""
+            reflection_history = agent_state.reflection_history.copy()
+            
+            # Log cycle end with reflection
             if self.logger:
                 self.logger.log_event(
                     run_id=self.config.run_id,
                     cycle_number=cycle_num,
                     event_type=EventType.CYCLE_END,
-                    payload={}
+                    payload={
+                        "final_reflection": final_reflection
+                    }
                 )
         
         print(f"\n✓ Experiment {self.config.run_id} completed successfully")
@@ -113,13 +125,23 @@ class CycleOrchestrator:
             
             # Log LLM invocation
             if self.logger:
+                # Extract only JSON-serializable data from response
+                message = response.get("message", {})
+                serializable_message = {
+                    "role": message.get("role", ""),
+                    "content": message.get("content", "")
+                }
+                # Include tool_calls if present
+                if "tool_calls" in message:
+                    serializable_message["tool_calls"] = message["tool_calls"]
+                
                 self.logger.log_event(
                     run_id=self.config.run_id,
                     cycle_number=agent_state.cycle_number,
                     event_type=EventType.LLM_INVOCATION,
                     payload={
                         "prompt_messages": messages,
-                        "response_message": response.get("message", {}),
+                        "response_message": serializable_message,
                         "model_options": self.config.model_options
                     }
                 )
@@ -243,12 +265,12 @@ class CycleOrchestrator:
             cycle_number: Current cycle number (1-based)
             
         Returns:
-            AgentState: Initialized state for this cycle
+            AgentState: Initialized state for this cycle with fresh message_history
         """
         return AgentState(
             run_id=self.config.run_id,
             cycle_number=cycle_number,
             model_name=self.config.model_name,
-            message_history=[],  # Empty for now, will be populated in later stories
-            reflection_history=[]  # Empty for now, will be populated in later stories
+            message_history=[],  # Always starts empty - populated during cycle execution
+            reflection_history=[]  # Initialized empty - run_experiment() restores from previous cycles
         )

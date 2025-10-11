@@ -64,8 +64,8 @@ def test_experiment_logs_cycle_events(temp_config_file, cleanup_log_file):
     with open(log_file, 'r') as f:
         lines = f.readlines()
     
-    # Should have 4 events (2 cycles × 2 events per cycle)
-    assert len(lines) == 4, f"Expected 4 log entries, got {len(lines)}"
+    # Should have 6 events (2 cycles × 3 events per cycle: CYCLE_START, LLM_INVOCATION, CYCLE_END)
+    assert len(lines) == 6, f"Expected 6 log entries, got {len(lines)}"
     
     # Parse all events
     events = [json.loads(line) for line in lines]
@@ -75,18 +75,26 @@ def test_experiment_logs_cycle_events(temp_config_file, cleanup_log_file):
     assert events[0]['cycle_number'] == 1
     assert events[0]['run_id'] == 'test-logging-run'
     
-    assert events[1]['event_type'] == 'CYCLE_END'
+    assert events[1]['event_type'] == 'LLM_INVOCATION'
     assert events[1]['cycle_number'] == 1
     assert events[1]['run_id'] == 'test-logging-run'
     
-    # Verify cycle 2 events
-    assert events[2]['event_type'] == 'CYCLE_START'
-    assert events[2]['cycle_number'] == 2
+    assert events[2]['event_type'] == 'CYCLE_END'
+    assert events[2]['cycle_number'] == 1
     assert events[2]['run_id'] == 'test-logging-run'
     
-    assert events[3]['event_type'] == 'CYCLE_END'
+    # Verify cycle 2 events
+    assert events[3]['event_type'] == 'CYCLE_START'
     assert events[3]['cycle_number'] == 2
     assert events[3]['run_id'] == 'test-logging-run'
+    
+    assert events[4]['event_type'] == 'LLM_INVOCATION'
+    assert events[4]['cycle_number'] == 2
+    assert events[4]['run_id'] == 'test-logging-run'
+    
+    assert events[5]['event_type'] == 'CYCLE_END'
+    assert events[5]['cycle_number'] == 2
+    assert events[5]['run_id'] == 'test-logging-run'
     
     # Verify all have timestamps
     for event in events:

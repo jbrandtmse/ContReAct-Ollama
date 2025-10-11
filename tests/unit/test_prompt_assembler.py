@@ -104,3 +104,79 @@ def test_build_prompt_without_diversity_feedback():
     assert len(messages) == 1
     assert messages[0]["role"] == "system"
     assert messages[0]["content"] == system_prompt
+
+
+def test_build_prompt_includes_reflection_history():
+    """Test that build_prompt includes reflection history in system prompt."""
+    # Setup
+    agent_state = AgentState(
+        run_id="test-run",
+        cycle_number=3,
+        model_name="llama3:latest",
+        message_history=[],
+        reflection_history=[
+            "Cycle 1: Explored topic A",
+            "Cycle 2: Investigated topic B"
+        ]
+    )
+    system_prompt = "Test system prompt"
+    tool_definitions = []
+    
+    # Execute
+    messages = build_prompt(agent_state, system_prompt, tool_definitions)
+    
+    # Assert
+    assert len(messages) == 1
+    assert messages[0]["role"] == "system"
+    assert "Test system prompt" in messages[0]["content"]
+    assert "Your Previous Reflections" in messages[0]["content"]
+    assert "Cycle 1: Explored topic A" in messages[0]["content"]
+    assert "Cycle 2: Investigated topic B" in messages[0]["content"]
+
+
+def test_build_prompt_empty_reflection_history_not_included():
+    """Test that empty reflection history does not add reflection section."""
+    # Setup
+    agent_state = AgentState(
+        run_id="test-run",
+        cycle_number=1,
+        model_name="llama3:latest",
+        message_history=[],
+        reflection_history=[]
+    )
+    system_prompt = "Test system prompt"
+    tool_definitions = []
+    
+    # Execute
+    messages = build_prompt(agent_state, system_prompt, tool_definitions)
+    
+    # Assert
+    assert len(messages) == 1
+    assert messages[0]["role"] == "system"
+    assert messages[0]["content"] == system_prompt
+    assert "Your Previous Reflections" not in messages[0]["content"]
+
+
+def test_build_prompt_reflection_history_with_diversity_feedback():
+    """Test that build_prompt includes both reflection history and diversity feedback."""
+    # Setup
+    agent_state = AgentState(
+        run_id="test-run",
+        cycle_number=2,
+        model_name="llama3:latest",
+        message_history=[],
+        reflection_history=["Previous reflection"]
+    )
+    system_prompt = "Test system prompt"
+    tool_definitions = []
+    diversity_feedback = "Try different approaches"
+    
+    # Execute
+    messages = build_prompt(agent_state, system_prompt, tool_definitions, diversity_feedback)
+    
+    # Assert
+    assert len(messages) == 1
+    assert messages[0]["role"] == "system"
+    assert "Test system prompt" in messages[0]["content"]
+    assert "Previous reflection" in messages[0]["content"]
+    assert "Try different approaches" in messages[0]["content"]

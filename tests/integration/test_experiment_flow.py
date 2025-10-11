@@ -54,6 +54,13 @@ def mock_ollama_available(monkeypatch):
     def mock_init(self, host='http://localhost:11434'):
         self.host = host
         self.client = Mock()
+        # Mock the chat method to return a proper response structure
+        self.client.chat.return_value = {
+            "message": {
+                "role": "assistant",
+                "content": "FINAL_ANSWER: Test complete"
+            }
+        }
     
     def mock_verify(self, model_name):
         # Mock successful verification
@@ -156,14 +163,17 @@ def test_orchestrator_integration_with_runner(
     temp_config_file, mock_ollama_available, capsys
 ):
     """Test that CycleOrchestrator integrates correctly with ExperimentRunner."""
+    from unittest.mock import Mock
+    
     runner = ExperimentRunner(temp_config_file)
     config = runner.load_config()
     services = runner.initialize_services()
     
-    # Create orchestrator directly
+    # Create orchestrator directly with tool_dispatcher
     orchestrator = CycleOrchestrator(
         config=config,
-        ollama_interface=services['ollama']
+        ollama_interface=services['ollama'],
+        tool_dispatcher=Mock()
     )
     
     # Run experiment

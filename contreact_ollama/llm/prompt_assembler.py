@@ -22,7 +22,7 @@ def build_prompt(
     Construct the full prompt for LLM invocation.
     
     Args:
-        agent_state: Current agent state with message history
+        agent_state: Current agent state with message history and reflection history
         system_prompt: Base system prompt text
         tool_definitions: Structured tool definitions in JSON schema format
         diversity_feedback: Optional advisory feedback from SimilarityMonitor
@@ -38,6 +38,14 @@ def build_prompt(
     
     # Construct system prompt
     full_system_prompt = system_prompt
+    
+    # Append reflection history from previous cycles if available
+    if agent_state.reflection_history:
+        reflection_context = "\n\n## Your Previous Reflections\n"
+        reflection_context += "These are your private notes from previous cycles:\n\n"
+        for i, reflection in enumerate(agent_state.reflection_history, start=1):
+            reflection_context += f"**Cycle {i}**: {reflection}\n\n"
+        full_system_prompt += reflection_context
     
     # Append diversity feedback if provided
     if diversity_feedback:
