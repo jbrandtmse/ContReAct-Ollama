@@ -16,12 +16,34 @@ ollama_client_config:
   host: "http://192.168.0.123:11434"  # Ollama server URL
 
 # LLM generation parameters
-# See Ollama documentation for details on each parameter
+# These defaults are optimized for autonomous research and exploration based on
+# empirical testing and best practices for self-directed agent behavior.
+# See docs/parameter-tuning-guide.md for detailed guidance.
 model_options:
-  seed: 42                    # Random seed for reproducibility
-  temperature: 0.7            # Creativity level (0.0-1.0, higher = more creative)
-  top_p: 0.9                  # Nucleus sampling threshold
+  seed: 42                    # Random seed for reproducibility (42 is conventional)
+  temperature: 0.6            # Creativity level (0.6 = balanced exploration, prevents drift)
+  top_p: 0.9                  # Nucleus sampling threshold (0.9 = optimal for agents)
   num_predict: -1             # Max tokens to generate (-1 = no limit)
   repeat_last_n: 64           # Look-back window for repetition penalty
-  repeat_penalty: 1.1         # Penalty multiplier for repeated tokens
-  num_ctx: 4096               # Context window size in tokens
+  repeat_penalty: 1.15        # Penalty multiplier for repeated tokens (1.15 prevents loops)
+  num_ctx: 30000              # Context window size (30K recommended for multi-cycle agents)
+
+# Alternative configurations for different use cases:
+#
+# HIGH-PRECISION TOOL CALLING (when tool accuracy is critical):
+#   temperature: 0.3
+#   top_p: 0.85
+#   repeat_penalty: 1.05
+#   num_ctx: 30000
+#
+# MAXIMUM CREATIVE EXPLORATION (for divergent thinking tasks):
+#   temperature: 0.8
+#   top_p: 0.95
+#   repeat_penalty: 1.2
+#   num_ctx: 30000
+#
+# CONVERSATIONAL INTERACTION (for natural dialogue):
+#   temperature: 0.7
+#   top_p: 0.9
+#   repeat_penalty: 1.1
+#   num_ctx: 30000
