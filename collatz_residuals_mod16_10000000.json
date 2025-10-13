@@ -1,0 +1,82 @@
+{
+  "mod16_0": {
+    "mean_residual": 0.089782,
+    "std_dev": 1.424157,
+    "count": 625000
+  },
+  "mod16_1": {
+    "mean_residual": -0.000106,
+    "std_dev": 1.42677,
+    "count": 625000
+  },
+  "mod16_2": {
+    "mean_residual": -0.000148,
+    "std_dev": 1.426718,
+    "count": 625000
+  },
+  "mod16_3": {
+    "mean_residual": -0.000147,
+    "std_dev": 1.4267,
+    "count": 625000
+  },
+  "mod16_4": {
+    "mean_residual": 0.044927,
+    "std_dev": 1.425492,
+    "count": 625000
+  },
+  "mod16_5": {
+    "mean_residual": 0.044927,
+    "std_dev": 1.425483,
+    "count": 625000
+  },
+  "mod16_6": {
+    "mean_residual": 8.7e-05,
+    "std_dev": 1.426807,
+    "count": 625000
+  },
+  "mod16_7": {
+    "mean_residual": -0.044987,
+    "std_dev": 1.427748,
+    "count": 625000
+  },
+  "mod16_8": {
+    "mean_residual": 0.044995,
+    "std_dev": 1.425318,
+    "count": 625000
+  },
+  "mod16_9": {
+    "mean_residual": -0.045122,
+    "std_dev": 1.427802,
+    "count": 625000
+  },
+  "mod16_10": {
+    "mean_residual": 0.044996,
+    "std_dev": 1.425309,
+    "count": 625000
+  },
+  "mod16_11": {
+    "mean_residual": -0.045071,
+    "std_dev": 1.427774,
+    "count": 625000
+  },
+  "mod16_12": {
+    "mean_residual": 0.000189,
+    "std_dev": 1.426397,
+    "count": 625000
+  },
+  "mod16_13": {
+    "mean_residual": 0.000189,
+    "std_dev": 1.426397,
+    "count": 625000
+  },
+  "mod16_14": {
+    "mean_residual": -0.044808,
+    "std_dev": 1.427414,
+    "count": 625000
+  },
+  "mod16_15": {
+    "mean_residual": -0.089999,
+    "std_dev": 1.428733,
+    "count": 625000
+  }
+}

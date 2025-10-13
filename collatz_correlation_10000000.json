@@ -1,0 +1,1 @@
+{"n_count":10000000,"computation_time_seconds":570.96,"correlations":{"n_vs_stopping_time":{"pearson_r":0.14634,"interpretation":"weak positive correlation"},"n_vs_peak_value":{"pearson_r":0.002177,"interpretation":"negligible positive correlation"}},"summary_statistics":{"mean_n":5000000.5,"mean_stopping_time":155.27,"mean_peak_value":127181610.5}}

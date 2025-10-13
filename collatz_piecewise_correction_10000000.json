@@ -1,0 +1,33 @@
+{
+  "original_regression": {
+    "equation": "total_steps = 2.594375 \u00d7 odd_steps + 21.546398",
+    "slope": 2.594375,
+    "intercept": 21.546398
+  },
+  "piecewise_corrections": {
+    "c1": 0.056175,
+    "c1_applies_to": [
+      0,
+      8,
+      10,
+      4
+    ],
+    "c2": 0.053997,
+    "c2_applies_to": [
+      7,
+      9,
+      11,
+      14,
+      15
+    ],
+    "description": "Add 0.056175 for n\u2261{0,4,8,10} (mod 16), subtract 0.053997 for n\u2261{7,9,11,14,15} (mod 16)"
+  },
+  "corrected_model": {
+    "base_equation": "total_steps = 2.594375 \u00d7 odd_steps + 21.546398",
+    "correction": "Add c\u2081 for n\u2261{0,4,8,10} (mod 16); subtract c\u2082 for n\u2261{7,9,11,14,15} (mod 16)",
+    "mse": 2.035407,
+    "rmse": 1.426677,
+    "r_squared": 0.999466
+  },
+  "original_model_r_squared": 0.999466
+}

@@ -1,0 +1,42 @@
+{
+  "mod8_0": {
+    "mean_residual": 0.067388,
+    "std_dev": 1.424913,
+    "count": 1250000
+  },
+  "mod8_1": {
+    "mean_residual": -0.022614,
+    "std_dev": 1.427464,
+    "count": 1250000
+  },
+  "mod8_2": {
+    "mean_residual": 0.022424,
+    "std_dev": 1.426193,
+    "count": 1250000
+  },
+  "mod8_3": {
+    "mean_residual": -0.022609,
+    "std_dev": 1.427414,
+    "count": 1250000
+  },
+  "mod8_4": {
+    "mean_residual": 0.022558,
+    "std_dev": 1.42612,
+    "count": 1250000
+  },
+  "mod8_5": {
+    "mean_residual": 0.022558,
+    "std_dev": 1.426116,
+    "count": 1250000
+  },
+  "mod8_6": {
+    "mean_residual": -0.022361,
+    "std_dev": 1.427287,
+    "count": 1250000
+  },
+  "mod8_7": {
+    "mean_residual": -0.067493,
+    "std_dev": 1.428418,
+    "count": 1250000
+  }
+}
