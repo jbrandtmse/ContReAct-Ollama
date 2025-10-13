@@ -138,10 +138,10 @@ with st.form("config_form"):
         num_ctx = st.number_input(
             "Context Window Size",
             min_value=512,
-            max_value=32768,
+            max_value=131072,
             value=DEFAULT_NUM_CTX,
             step=512,
-            help="Context window size for the model"
+            help="Context window size for the model (up to 128k)"
         )
     
     st.divider()
