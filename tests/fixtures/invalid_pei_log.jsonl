@@ -1,0 +1,4 @@
+{"event_type": "EXPERIMENT_START", "timestamp": "2025-01-08T10:00:00", "cycle_number": 0, "payload": {"run_id": "test-run-002"}}
+{"event_type": "LLM_INVOCATION", "timestamp": "2025-01-08T10:00:05", "cycle_number": 1, "payload": {"prompt_messages": [{"role": "system", "content": "Test"}]}}
+{this is not valid json
+{"event_type": "LLM_INVOCATION", "timestamp": "2025-01-08T10:00:10", "cycle_number": 2, "payload": {"prompt_messages": [{"role": "user", "content": "Test"}]}}
