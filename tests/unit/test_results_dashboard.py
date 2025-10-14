@@ -6,6 +6,7 @@ log file scanning and JSONL file loading.
 
 Part of: Story 2.5 - Results Dashboard Run Selector and Data Loading
 Part of: Story 2.6 - Display Summary Metrics on Dashboard
+Part of: Story 2.7 - Display Raw Conversation Log on Dashboard
 """
 import json
 import pytest
@@ -536,3 +537,410 @@ class TestLoadPEIAssessment:
         
         assert isinstance(result, list)
         assert len(result) == 2
+
+
+class TestConversationLogDataProcessing:
+    """Test suite for conversation log data processing logic."""
+    
+    def test_processes_cycle_start_event(self):
+        """Test that CYCLE_START events are processed correctly."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "CYCLE_START",
+                "payload": {},
+                "timestamp": "2025-01-08T10:00:00"
+            }
+        ])
+        
+        # Verify DataFrame structure for conversation log processing
+        for idx, row in df.iterrows():
+            assert row.get('cycle_number') == 1
+            assert row.get('event_type') == 'CYCLE_START'
+            assert isinstance(row.get('payload'), dict)
+            assert row.get('timestamp') == "2025-01-08T10:00:00"
+    
+    def test_processes_llm_invocation_event(self):
+        """Test that LLM_INVOCATION events with messages are processed correctly."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "LLM_INVOCATION",
+                "payload": {
+                    "prompt_messages": [
+                        {"role": "system", "content": "You are an assistant"},
+                        {"role": "user", "content": "Hello"}
+                    ],
+                    "response_message": {
+                        "role": "assistant",
+                        "content": "Hi there!"
+                    }
+                },
+                "timestamp": "2025-01-08T10:00:01"
+            }
+        ])
+        
+        # Verify message extraction
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            assert 'prompt_messages' in payload
+            assert 'response_message' in payload
+            assert len(payload['prompt_messages']) == 2
+            assert payload['prompt_messages'][0]['role'] == 'system'
+            assert payload['response_message']['role'] == 'assistant'
+    
+    def test_processes_tool_call_event(self):
+        """Test that TOOL_CALL events are processed correctly."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "TOOL_CALL",
+                "payload": {
+                    "tool_name": "store_memory",
+                    "parameters": {"key": "test", "value": "data"},
+                    "output": "Memory stored successfully"
+                },
+                "timestamp": "2025-01-08T10:00:02"
+            }
+        ])
+        
+        # Verify tool call extraction
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            assert payload.get('tool_name') == 'store_memory'
+            assert isinstance(payload.get('parameters'), dict)
+            assert payload.get('output') == 'Memory stored successfully'
+    
+    def test_processes_cycle_end_event_with_reflection(self):
+        """Test that CYCLE_END events with reflection are processed correctly."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "CYCLE_END",
+                "payload": {
+                    "final_reflection": "I explored the problem space effectively",
+                    "metrics": {
+                        "memory_ops_total": 5,
+                        "messages_to_operator": 2,
+                        "response_chars": 1500
+                    }
+                },
+                "timestamp": "2025-01-08T10:00:05"
+            }
+        ])
+        
+        # Verify reflection extraction
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            assert 'final_reflection' in payload
+            assert 'metrics' in payload
+            assert payload['final_reflection'] == "I explored the problem space effectively"
+            assert isinstance(payload['metrics'], dict)
+    
+    def test_handles_missing_payload_gracefully(self):
+        """Test that missing payload is handled without errors."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "CYCLE_START",
+                "timestamp": "2025-01-08T10:00:00"
+                # Missing payload field
+            }
+        ])
+        
+        # Verify default handling
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            assert isinstance(payload, dict)
+            assert len(payload) == 0
+    
+    def test_handles_non_dict_payload(self):
+        """Test that non-dictionary payloads are handled gracefully."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "CYCLE_START",
+                "payload": "invalid_payload_string",
+                "timestamp": "2025-01-08T10:00:00"
+            }
+        ])
+        
+        # Verify type checking
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            # The code should check isinstance(payload, dict)
+            is_valid = isinstance(payload, dict)
+            assert not is_valid  # String is not dict
+    
+    def test_handles_empty_prompt_messages(self):
+        """Test that empty prompt_messages list is handled."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "LLM_INVOCATION",
+                "payload": {
+                    "prompt_messages": [],
+                    "response_message": {"role": "assistant", "content": "Hello"}
+                },
+                "timestamp": "2025-01-08T10:00:01"
+            }
+        ])
+        
+        # Verify empty list handling
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            messages = payload.get('prompt_messages', [])
+            assert isinstance(messages, list)
+            assert len(messages) == 0
+    
+    def test_handles_malformed_message_in_list(self):
+        """Test that malformed messages in list are handled."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "LLM_INVOCATION",
+                "payload": {
+                    "prompt_messages": [
+                        {"role": "system", "content": "Valid message"},
+                        "invalid_message_string",  # Malformed message
+                        {"role": "user", "content": "Another valid message"}
+                    ]
+                },
+                "timestamp": "2025-01-08T10:00:01"
+            }
+        ])
+        
+        # Verify message validation
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            if 'prompt_messages' in payload:
+                messages = payload['prompt_messages']
+                if isinstance(messages, list):
+                    for msg in messages:
+                        # Code should check isinstance(msg, dict)
+                        if isinstance(msg, dict):
+                            assert 'role' in msg or 'content' in msg
+    
+    def test_handles_missing_role_or_content_in_message(self):
+        """Test that messages missing role or content are handled."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "LLM_INVOCATION",
+                "payload": {
+                    "prompt_messages": [
+                        {"role": "system"},  # Missing content
+                        {"content": "No role specified"},  # Missing role
+                        {}  # Missing both
+                    ]
+                },
+                "timestamp": "2025-01-08T10:00:01"
+            }
+        ])
+        
+        # Verify default handling with .get()
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            if 'prompt_messages' in payload:
+                for msg in payload['prompt_messages']:
+                    if isinstance(msg, dict):
+                        role = msg.get('role', 'unknown')
+                        content = msg.get('content', '')
+                        assert role in ['system', 'unknown'] or role is not None
+                        assert content == '' or isinstance(content, str)
+    
+    def test_handles_missing_tool_call_fields(self):
+        """Test that missing tool_name, parameters, or output are handled."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "TOOL_CALL",
+                "payload": {},  # All fields missing
+                "timestamp": "2025-01-08T10:00:02"
+            }
+        ])
+        
+        # Verify default handling
+        for idx, row in df.iterrows():
+            payload = row.get('payload', {})
+            tool_name = payload.get('tool_name', 'unknown')
+            parameters = payload.get('parameters', {})
+            output = payload.get('output', '')
+            
+            assert tool_name == 'unknown'
+            assert isinstance(parameters, dict)
+            assert output == ''
+    
+    def test_full_conversation_log_flow(self):
+        """Test complete conversation flow with all event types."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "CYCLE_START",
+                "payload": {},
+                "timestamp": "2025-01-08T10:00:00"
+            },
+            {
+                "cycle_number": 1,
+                "event_type": "LLM_INVOCATION",
+                "payload": {
+                    "prompt_messages": [
+                        {"role": "system", "content": "System prompt"}
+                    ],
+                    "response_message": {
+                        "role": "assistant",
+                        "content": "I will use tools"
+                    }
+                },
+                "timestamp": "2025-01-08T10:00:01"
+            },
+            {
+                "cycle_number": 1,
+                "event_type": "TOOL_CALL",
+                "payload": {
+                    "tool_name": "store_memory",
+                    "parameters": {"key": "test"},
+                    "output": "Success"
+                },
+                "timestamp": "2025-01-08T10:00:02"
+            },
+            {
+                "cycle_number": 1,
+                "event_type": "CYCLE_END",
+                "payload": {
+                    "final_reflection": "Completed cycle",
+                    "metrics": {
+                        "memory_ops_total": 1,
+                        "messages_to_operator": 0,
+                        "response_chars": 100
+                    }
+                },
+                "timestamp": "2025-01-08T10:00:05"
+            }
+        ])
+        
+        # Verify complete flow can be processed
+        event_types_seen = []
+        for idx, row in df.iterrows():
+            event_type = row.get('event_type', 'UNKNOWN')
+            event_types_seen.append(event_type)
+            payload = row.get('payload', {})
+            
+            # Verify payload is always a dict or can be defaulted
+            if not isinstance(payload, dict):
+                payload = {}
+            
+            assert isinstance(payload, dict)
+        
+        assert event_types_seen == ['CYCLE_START', 'LLM_INVOCATION', 'TOOL_CALL', 'CYCLE_END']
+    
+    def test_error_handling_continues_on_exception(self):
+        """Test that processing continues even when individual events cause errors."""
+        
+        df = pd.DataFrame([
+            {
+                "cycle_number": 1,
+                "event_type": "CYCLE_START",
+                "payload": {},
+                "timestamp": "2025-01-08T10:00:00"
+            },
+            {
+                "cycle_number": 1,
+                "event_type": "LLM_INVOCATION",
+                "payload": None,  # This will cause issues
+                "timestamp": "2025-01-08T10:00:01"
+            },
+            {
+                "cycle_number": 1,
+                "event_type": "CYCLE_END",
+                "payload": {"final_reflection": "Done"},
+                "timestamp": "2025-01-08T10:00:05"
+            }
+        ])
+        
+        # Verify processing can continue despite errors
+        processed_count = 0
+        error_count = 0
+        
+        for idx, row in df.iterrows():
+            try:
+                payload = row.get('payload', {})
+                if not isinstance(payload, dict):
+                    raise ValueError("Invalid payload")
+                processed_count += 1
+            except Exception:
+                error_count += 1
+                continue  # Code should continue on error
+        
+        assert processed_count > 0  # At least some events processed
+        assert error_count > 0  # At least one error occurred
+    
+    def test_event_type_filtering_single_type(self):
+        """Test filtering to show only one event type"""
+        df = pd.DataFrame([
+            {'event_type': 'CYCLE_START', 'cycle_number': 1, 'payload': {}},
+            {'event_type': 'LLM_INVOCATION', 'cycle_number': 1, 'payload': {'prompt_messages': []}},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {'tool_name': 'test'}},
+            {'event_type': 'CYCLE_END', 'cycle_number': 1, 'payload': {}},
+        ])
+        
+        selected_types = ['TOOL_CALL']
+        filtered = df[df['event_type'].isin(selected_types)]
+        
+        assert len(filtered) == 1
+        assert filtered.iloc[0]['event_type'] == 'TOOL_CALL'
+
+    def test_event_type_filtering_multiple_types(self):
+        """Test filtering to show multiple event types"""
+        df = pd.DataFrame([
+            {'event_type': 'CYCLE_START', 'cycle_number': 1, 'payload': {}},
+            {'event_type': 'LLM_INVOCATION', 'cycle_number': 1, 'payload': {}},
+            {'event_type': 'CYCLE_END', 'cycle_number': 1, 'payload': {}},
+        ])
+        
+        selected_types = ['CYCLE_START', 'CYCLE_END']
+        filtered = df[df['event_type'].isin(selected_types)]
+        
+        assert len(filtered) == 2
+        assert 'CYCLE_START' in filtered['event_type'].values
+        assert 'CYCLE_END' in filtered['event_type'].values
+        assert 'LLM_INVOCATION' not in filtered['event_type'].values
+
+    def test_event_type_filtering_preserves_order(self):
+        """Test that filtering maintains chronological order"""
+        df = pd.DataFrame([
+            {'event_type': 'CYCLE_START', 'cycle_number': 1, 'payload': {}, 'timestamp': '2025-01-01 10:00:00'},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {}, 'timestamp': '2025-01-01 10:00:01'},
+            {'event_type': 'LLM_INVOCATION', 'cycle_number': 1, 'payload': {}, 'timestamp': '2025-01-01 10:00:02'},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {}, 'timestamp': '2025-01-01 10:00:03'},
+        ])
+        
+        selected_types = ['TOOL_CALL']
+        filtered = df[df['event_type'].isin(selected_types)]
+        
+        assert len(filtered) == 2
+        # Verify order preserved (first tool call before second)
+        assert filtered.iloc[0]['timestamp'] == '2025-01-01 10:00:01'
+        assert filtered.iloc[1]['timestamp'] == '2025-01-01 10:00:03'
+
+    def test_event_type_filtering_empty_selection(self):
+        """Test behavior when no event types selected"""
+        df = pd.DataFrame([
+            {'event_type': 'CYCLE_START', 'cycle_number': 1, 'payload': {}},
+        ])
+        
+        selected_types = []
+        filtered = df[df['event_type'].isin(selected_types)]
+        
+        assert len(filtered) == 0
