@@ -7,11 +7,14 @@ Provides run selection, data loading, and displays summary information.
 Part of: Story 2.5 - Results Dashboard Run Selector and Data Loading
 Part of: Story 2.6 - Display Summary Metrics on Dashboard
 Part of: Story 2.7 - Display Raw Conversation Log on Dashboard
+Part of: Story 2.8 - Implement Interactive Charts on Dashboard
 """
 import json
 import pandas as pd
 from pathlib import Path
 import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
 from contreact_ollama.ui_utils import (
     get_log_files,
     load_log_file,
@@ -283,3 +286,139 @@ if 'run_data' in st.session_state:
         
         st.markdown("---")
         st.success("✅ End of conversation log")
+    
+    st.divider()
+    
+    # Interactive Charts Section
+    st.subheader("📊 Interactive Charts")
+    st.caption("Explore experimental data through interactive visualizations")
+    
+    try:
+        # Prepare data for charts
+        # Count tool calls per cycle
+        tool_calls_df = df[df['event_type'] == 'TOOL_CALL'].groupby('cycle_number').size().reset_index(name='tool_calls')
+        
+        # Extract metrics from CYCLE_END events
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        
+        if len(cycle_ends) > 0:
+            metrics_data = []
+            for idx, row in cycle_ends.iterrows():
+                if 'payload' in row and isinstance(row['payload'], dict):
+                    payload = row['payload']
+                    if 'metrics' in payload:
+                        metrics = payload['metrics']
+                        metrics_data.append({
+                            'cycle': row['cycle_number'],
+                            'memory_ops': metrics.get('memory_ops_total', 0),
+                            'messages': metrics.get('messages_to_operator', 0),
+                            'response_chars': metrics.get('response_chars', 0),
+                            'memory_chars': metrics.get('memory_write_chars', 0)
+                        })
+            
+            if metrics_data:
+                metrics_df = pd.DataFrame(metrics_data)
+                
+                # Chart 1: Tool Calls per Cycle (Bar Chart)
+                st.markdown("#### 🔧 Tool Calls per Cycle")
+                
+                if len(tool_calls_df) > 0:
+                    fig_tools = px.bar(
+                        tool_calls_df,
+                        x='cycle_number',
+                        y='tool_calls',
+                        title='Tool Calls by Cycle',
+                        labels={'cycle_number': 'Cycle', 'tool_calls': 'Number of Tool Calls'},
+                        color='tool_calls',
+                        color_continuous_scale='Blues'
+                    )
+                    
+                    fig_tools.update_layout(
+                        hovermode='x unified',
+                        xaxis=dict(tickmode='linear', tick0=1, dtick=1)
+                    )
+                    
+                    st.plotly_chart(fig_tools, use_container_width=True)
+                else:
+                    st.info("No tool calls found in this run")
+                
+                # Chart 2: Response Length Over Time (Line Chart)
+                st.markdown("#### 📝 Response Length Trend")
+                
+                fig_response = px.line(
+                    metrics_df,
+                    x='cycle',
+                    y='response_chars',
+                    title='Response Character Count Over Time',
+                    labels={'cycle': 'Cycle', 'response_chars': 'Characters'},
+                    markers=True
+                )
+                
+                fig_response.update_layout(
+                    hovermode='x unified',
+                    xaxis=dict(tickmode='linear', tick0=1, dtick=1)
+                )
+                
+                st.plotly_chart(fig_response, use_container_width=True)
+                
+                # Chart 3: Memory Operations (Bar Chart)
+                st.markdown("#### 💾 Memory Operations by Cycle")
+                
+                fig_memory = px.bar(
+                    metrics_df,
+                    x='cycle',
+                    y='memory_ops',
+                    title='Memory Operations per Cycle',
+                    labels={'cycle': 'Cycle', 'memory_ops': 'Memory Operations'},
+                    color='memory_ops',
+                    color_continuous_scale='Greens'
+                )
+                
+                fig_memory.update_layout(
+                    hovermode='x unified',
+                    xaxis=dict(tickmode='linear', tick0=1, dtick=1)
+                )
+                
+                st.plotly_chart(fig_memory, use_container_width=True)
+                
+                # Chart 4: Multi-metric Comparison (Grouped Bar)
+                st.markdown("#### 📊 Metrics Comparison")
+                
+                # Melt dataframe for grouped bar chart
+                melted_df = metrics_df.melt(
+                    id_vars=['cycle'],
+                    value_vars=['memory_ops', 'messages'],
+                    var_name='Metric',
+                    value_name='Count'
+                )
+                
+                # Rename for display
+                melted_df['Metric'] = melted_df['Metric'].map({
+                    'memory_ops': 'Memory Operations',
+                    'messages': 'Messages to Operator'
+                })
+                
+                fig_compare = px.bar(
+                    melted_df,
+                    x='cycle',
+                    y='Count',
+                    color='Metric',
+                    barmode='group',
+                    title='Memory Operations vs Messages by Cycle',
+                    labels={'cycle': 'Cycle', 'Count': 'Count'}
+                )
+                
+                fig_compare.update_layout(
+                    hovermode='x unified',
+                    xaxis=dict(tickmode='linear', tick0=1, dtick=1)
+                )
+                
+                st.plotly_chart(fig_compare, use_container_width=True)
+            else:
+                st.warning("No metrics data available for charts")
+        else:
+            st.warning("No CYCLE_END events found for chart generation")
+    
+    except Exception as e:
+        st.error(f"Error generating charts: {e}")
+        st.info("Charts could not be rendered. Please check the log file format.")

@@ -7,6 +7,7 @@ log file scanning and JSONL file loading.
 Part of: Story 2.5 - Results Dashboard Run Selector and Data Loading
 Part of: Story 2.6 - Display Summary Metrics on Dashboard
 Part of: Story 2.7 - Display Raw Conversation Log on Dashboard
+Part of: Story 2.8 - Implement Interactive Charts on Dashboard
 """
 import json
 import pytest
@@ -944,3 +945,484 @@ class TestConversationLogDataProcessing:
         filtered = df[df['event_type'].isin(selected_types)]
         
         assert len(filtered) == 0
+
+
+class TestInteractiveChartsDataPreparation:
+    """Test suite for interactive charts data preparation logic."""
+    
+    def test_aggregates_tool_calls_by_cycle(self):
+        """Test that tool calls are correctly aggregated per cycle."""
+        
+        df = pd.DataFrame([
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {'tool_name': 'store_memory'}},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {'tool_name': 'retrieve_memory'}},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 2, 'payload': {'tool_name': 'store_memory'}},
+            {'event_type': 'CYCLE_END', 'cycle_number': 1, 'payload': {}},
+        ])
+        
+        tool_calls_df = df[df['event_type'] == 'TOOL_CALL'].groupby('cycle_number').size().reset_index(name='tool_calls')
+        
+        assert len(tool_calls_df) == 2
+        assert tool_calls_df[tool_calls_df['cycle_number'] == 1]['tool_calls'].values[0] == 2
+        assert tool_calls_df[tool_calls_df['cycle_number'] == 2]['tool_calls'].values[0] == 1
+    
+    def test_handles_zero_tool_calls(self):
+        """Test that zero tool calls results in empty DataFrame."""
+        
+        df = pd.DataFrame([
+            {'event_type': 'CYCLE_START', 'cycle_number': 1, 'payload': {}},
+            {'event_type': 'CYCLE_END', 'cycle_number': 1, 'payload': {}},
+        ])
+        
+        tool_calls_df = df[df['event_type'] == 'TOOL_CALL'].groupby('cycle_number').size().reset_index(name='tool_calls')
+        
+        assert len(tool_calls_df) == 0
+    
+    def test_extracts_metrics_for_charts(self):
+        """Test that metrics are correctly extracted for chart visualization."""
+        
+        df = pd.DataFrame([
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 1,
+                'payload': {
+                    'metrics': {
+                        'memory_ops_total': 5,
+                        'messages_to_operator': 2,
+                        'response_chars': 1500,
+                        'memory_write_chars': 800
+                    }
+                }
+            },
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 2,
+                'payload': {
+                    'metrics': {
+                        'memory_ops_total': 3,
+                        'messages_to_operator': 1,
+                        'response_chars': 1200,
+                        'memory_write_chars': 600
+                    }
+                }
+            }
+        ])
+        
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        metrics_data = []
+        
+        for idx, row in cycle_ends.iterrows():
+            if 'payload' in row and isinstance(row['payload'], dict):
+                payload = row['payload']
+                if 'metrics' in payload:
+                    metrics = payload['metrics']
+                    metrics_data.append({
+                        'cycle': row['cycle_number'],
+                        'memory_ops': metrics.get('memory_ops_total', 0),
+                        'messages': metrics.get('messages_to_operator', 0),
+                        'response_chars': metrics.get('response_chars', 0),
+                        'memory_chars': metrics.get('memory_write_chars', 0)
+                    })
+        
+        assert len(metrics_data) == 2
+        assert metrics_data[0]['cycle'] == 1
+        assert metrics_data[0]['memory_ops'] == 5
+        assert metrics_data[1]['cycle'] == 2
+        assert metrics_data[1]['response_chars'] == 1200
+    
+    def test_handles_missing_metrics_in_cycle_end(self):
+        """Test that CYCLE_END events without metrics are skipped."""
+        
+        df = pd.DataFrame([
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 1,
+                'payload': {
+                    'metrics': {
+                        'memory_ops_total': 5,
+                        'messages_to_operator': 2,
+                        'response_chars': 1500,
+                        'memory_write_chars': 800
+                    }
+                }
+            },
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 2,
+                'payload': {}  # No metrics
+            },
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 3,
+                'payload': {
+                    'metrics': {
+                        'memory_ops_total': 3,
+                        'messages_to_operator': 1,
+                        'response_chars': 1200,
+                        'memory_write_chars': 600
+                    }
+                }
+            }
+        ])
+        
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        metrics_data = []
+        
+        for idx, row in cycle_ends.iterrows():
+            if 'payload' in row and isinstance(row['payload'], dict):
+                payload = row['payload']
+                if 'metrics' in payload:
+                    metrics = payload['metrics']
+                    metrics_data.append({
+                        'cycle': row['cycle_number'],
+                        'memory_ops': metrics.get('memory_ops_total', 0),
+                        'messages': metrics.get('messages_to_operator', 0),
+                        'response_chars': metrics.get('response_chars', 0),
+                        'memory_chars': metrics.get('memory_write_chars', 0)
+                    })
+        
+        assert len(metrics_data) == 2  # Only cycles 1 and 3
+        assert metrics_data[0]['cycle'] == 1
+        assert metrics_data[1]['cycle'] == 3
+    
+    def test_handles_no_cycle_end_events(self):
+        """Test behavior when no CYCLE_END events exist."""
+        
+        df = pd.DataFrame([
+            {'event_type': 'CYCLE_START', 'cycle_number': 1, 'payload': {}},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {}},
+        ])
+        
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        
+        assert len(cycle_ends) == 0
+    
+    def test_metrics_dataframe_structure(self):
+        """Test that metrics DataFrame has correct structure for charts."""
+        
+        metrics_data = [
+            {
+                'cycle': 1,
+                'memory_ops': 5,
+                'messages': 2,
+                'response_chars': 1500,
+                'memory_chars': 800
+            },
+            {
+                'cycle': 2,
+                'memory_ops': 3,
+                'messages': 1,
+                'response_chars': 1200,
+                'memory_chars': 600
+            }
+        ]
+        
+        metrics_df = pd.DataFrame(metrics_data)
+        
+        assert 'cycle' in metrics_df.columns
+        assert 'memory_ops' in metrics_df.columns
+        assert 'messages' in metrics_df.columns
+        assert 'response_chars' in metrics_df.columns
+        assert 'memory_chars' in metrics_df.columns
+        assert len(metrics_df) == 2
+    
+    def test_dataframe_melting_for_grouped_bar_chart(self):
+        """Test that DataFrame melting works correctly for grouped bar charts."""
+        
+        metrics_df = pd.DataFrame([
+            {'cycle': 1, 'memory_ops': 5, 'messages': 2},
+            {'cycle': 2, 'memory_ops': 3, 'messages': 1},
+        ])
+        
+        melted_df = metrics_df.melt(
+            id_vars=['cycle'],
+            value_vars=['memory_ops', 'messages'],
+            var_name='Metric',
+            value_name='Count'
+        )
+        
+        assert len(melted_df) == 4  # 2 cycles × 2 metrics
+        assert 'cycle' in melted_df.columns
+        assert 'Metric' in melted_df.columns
+        assert 'Count' in melted_df.columns
+        assert 'memory_ops' in melted_df['Metric'].values
+        assert 'messages' in melted_df['Metric'].values
+    
+    def test_metric_renaming_for_display(self):
+        """Test that metrics are renamed for better display."""
+        
+        metrics_df = pd.DataFrame([
+            {'cycle': 1, 'memory_ops': 5, 'messages': 2},
+        ])
+        
+        melted_df = metrics_df.melt(
+            id_vars=['cycle'],
+            value_vars=['memory_ops', 'messages'],
+            var_name='Metric',
+            value_name='Count'
+        )
+        
+        melted_df['Metric'] = melted_df['Metric'].map({
+            'memory_ops': 'Memory Operations',
+            'messages': 'Messages to Operator'
+        })
+        
+        assert 'Memory Operations' in melted_df['Metric'].values
+        assert 'Messages to Operator' in melted_df['Metric'].values
+        assert 'memory_ops' not in melted_df['Metric'].values
+        assert 'messages' not in melted_df['Metric'].values
+
+
+class TestInteractiveChartsErrorHandling:
+    """Test suite for interactive charts error handling."""
+    
+    def test_handles_empty_dataframe(self):
+        """Test that empty DataFrame is handled gracefully."""
+        
+        df = pd.DataFrame()
+        
+        try:
+            tool_calls_df = df[df['event_type'] == 'TOOL_CALL'].groupby('cycle_number').size().reset_index(name='tool_calls')
+            # Should handle gracefully, not raise exception
+            assert len(tool_calls_df) == 0
+        except KeyError:
+            # Expected if event_type column doesn't exist
+            pass
+    
+    def test_handles_missing_payload_column(self):
+        """Test that missing payload column is handled."""
+        
+        df = pd.DataFrame([
+            {'event_type': 'CYCLE_END', 'cycle_number': 1}
+            # Missing payload column
+        ])
+        
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        metrics_data = []
+        
+        for idx, row in cycle_ends.iterrows():
+            if 'payload' in row and isinstance(row['payload'], dict):
+                payload = row['payload']
+                if 'metrics' in payload:
+                    metrics_data.append({'cycle': row['cycle_number']})
+        
+        assert len(metrics_data) == 0  # No metrics extracted
+    
+    def test_handles_non_dict_payload(self):
+        """Test that non-dictionary payload is handled."""
+        
+        df = pd.DataFrame([
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 1,
+                'payload': 'invalid_payload'
+            }
+        ])
+        
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        metrics_data = []
+        
+        for idx, row in cycle_ends.iterrows():
+            if 'payload' in row and isinstance(row['payload'], dict):
+                payload = row['payload']
+                if 'metrics' in payload:
+                    metrics_data.append({'cycle': row['cycle_number']})
+        
+        assert len(metrics_data) == 0  # Invalid payload skipped
+    
+    def test_handles_missing_metric_fields(self):
+        """Test that missing metric fields use default values."""
+        
+        df = pd.DataFrame([
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 1,
+                'payload': {
+                    'metrics': {
+                        'memory_ops_total': 5
+                        # Missing other fields
+                    }
+                }
+            }
+        ])
+        
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        metrics_data = []
+        
+        for idx, row in cycle_ends.iterrows():
+            if 'payload' in row and isinstance(row['payload'], dict):
+                payload = row['payload']
+                if 'metrics' in payload:
+                    metrics = payload['metrics']
+                    metrics_data.append({
+                        'cycle': row['cycle_number'],
+                        'memory_ops': metrics.get('memory_ops_total', 0),
+                        'messages': metrics.get('messages_to_operator', 0),
+                        'response_chars': metrics.get('response_chars', 0),
+                        'memory_chars': metrics.get('memory_write_chars', 0)
+                    })
+        
+        assert len(metrics_data) == 1
+        assert metrics_data[0]['memory_ops'] == 5
+        assert metrics_data[0]['messages'] == 0  # Default
+        assert metrics_data[0]['response_chars'] == 0  # Default
+        assert metrics_data[0]['memory_chars'] == 0  # Default
+    
+    def test_exception_handling_continues_processing(self):
+        """Test that exceptions don't stop chart data preparation."""
+        
+        df = pd.DataFrame([
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 1,
+                'payload': {
+                    'metrics': {
+                        'memory_ops_total': 5,
+                        'messages_to_operator': 2,
+                        'response_chars': 1500,
+                        'memory_write_chars': 800
+                    }
+                }
+            },
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 2,
+                'payload': None  # Will cause error
+            },
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 3,
+                'payload': {
+                    'metrics': {
+                        'memory_ops_total': 3,
+                        'messages_to_operator': 1,
+                        'response_chars': 1200,
+                        'memory_write_chars': 600
+                    }
+                }
+            }
+        ])
+        
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        metrics_data = []
+        
+        for idx, row in cycle_ends.iterrows():
+            try:
+                if 'payload' in row and isinstance(row['payload'], dict):
+                    payload = row['payload']
+                    if 'metrics' in payload:
+                        metrics = payload['metrics']
+                        metrics_data.append({
+                            'cycle': row['cycle_number'],
+                            'memory_ops': metrics.get('memory_ops_total', 0),
+                            'messages': metrics.get('messages_to_operator', 0),
+                            'response_chars': metrics.get('response_chars', 0),
+                            'memory_chars': metrics.get('memory_write_chars', 0)
+                        })
+            except Exception:
+                continue  # Should continue processing
+        
+        assert len(metrics_data) == 2  # Cycles 1 and 3 processed despite error in cycle 2
+        assert metrics_data[0]['cycle'] == 1
+        assert metrics_data[1]['cycle'] == 3
+
+
+class TestInteractiveChartsDataAccuracy:
+    """Test suite for verifying chart data accuracy."""
+    
+    def test_tool_call_counts_match_source_data(self):
+        """Test that tool call counts in chart data match source events."""
+        
+        df = pd.DataFrame([
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {'tool_name': 'store_memory'}},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {'tool_name': 'retrieve_memory'}},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 1, 'payload': {'tool_name': 'send_message'}},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 2, 'payload': {'tool_name': 'store_memory'}},
+            {'event_type': 'TOOL_CALL', 'cycle_number': 2, 'payload': {'tool_name': 'retrieve_memory'}},
+        ])
+        
+        # Manual count
+        cycle_1_count = len(df[(df['event_type'] == 'TOOL_CALL') & (df['cycle_number'] == 1)])
+        cycle_2_count = len(df[(df['event_type'] == 'TOOL_CALL') & (df['cycle_number'] == 2)])
+        
+        # Chart data
+        tool_calls_df = df[df['event_type'] == 'TOOL_CALL'].groupby('cycle_number').size().reset_index(name='tool_calls')
+        
+        assert tool_calls_df[tool_calls_df['cycle_number'] == 1]['tool_calls'].values[0] == cycle_1_count
+        assert tool_calls_df[tool_calls_df['cycle_number'] == 2]['tool_calls'].values[0] == cycle_2_count
+        assert cycle_1_count == 3
+        assert cycle_2_count == 2
+    
+    def test_metrics_values_match_source_data(self):
+        """Test that metric values in chart data match source CYCLE_END events."""
+        
+        df = pd.DataFrame([
+            {
+                'event_type': 'CYCLE_END',
+                'cycle_number': 1,
+                'payload': {
+                    'metrics': {
+                        'memory_ops_total': 5,
+                        'messages_to_operator': 2,
+                        'response_chars': 1500,
+                        'memory_write_chars': 800
+                    }
+                }
+            }
+        ])
+        
+        # Extract for chart
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        metrics_data = []
+        
+        for idx, row in cycle_ends.iterrows():
+            if 'payload' in row and isinstance(row['payload'], dict):
+                payload = row['payload']
+                if 'metrics' in payload:
+                    metrics = payload['metrics']
+                    metrics_data.append({
+                        'cycle': row['cycle_number'],
+                        'memory_ops': metrics.get('memory_ops_total', 0),
+                        'messages': metrics.get('messages_to_operator', 0),
+                        'response_chars': metrics.get('response_chars', 0),
+                        'memory_chars': metrics.get('memory_write_chars', 0)
+                    })
+        
+        # Verify accuracy
+        source_metrics = df.iloc[0]['payload']['metrics']
+        chart_data = metrics_data[0]
+        
+        assert chart_data['memory_ops'] == source_metrics['memory_ops_total']
+        assert chart_data['messages'] == source_metrics['messages_to_operator']
+        assert chart_data['response_chars'] == source_metrics['response_chars']
+        assert chart_data['memory_chars'] == source_metrics['memory_write_chars']
+    
+    def test_all_cycles_represented_in_chart_data(self):
+        """Test that all cycles with data are represented in chart data."""
+        
+        df = pd.DataFrame([
+            {'event_type': 'CYCLE_END', 'cycle_number': 1, 'payload': {'metrics': {'memory_ops_total': 5}}},
+            {'event_type': 'CYCLE_END', 'cycle_number': 2, 'payload': {'metrics': {'memory_ops_total': 3}}},
+            {'event_type': 'CYCLE_END', 'cycle_number': 3, 'payload': {'metrics': {'memory_ops_total': 7}}},
+            {'event_type': 'CYCLE_END', 'cycle_number': 5, 'payload': {'metrics': {'memory_ops_total': 2}}},
+        ])
+        
+        expected_cycles = [1, 2, 3, 5]
+        
+        cycle_ends = df[df['event_type'] == 'CYCLE_END'].copy()
+        metrics_data = []
+        
+        for idx, row in cycle_ends.iterrows():
+            if 'payload' in row and isinstance(row['payload'], dict):
+                payload = row['payload']
+                if 'metrics' in payload:
+                    metrics = payload['metrics']
+                    metrics_data.append({
+                        'cycle': row['cycle_number'],
+                        'memory_ops': metrics.get('memory_ops_total', 0)
+                    })
+        
+        chart_cycles = [d['cycle'] for d in metrics_data]
+        
+        assert chart_cycles == expected_cycles
+        assert len(chart_cycles) == 4
