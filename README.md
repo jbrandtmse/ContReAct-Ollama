@@ -94,8 +94,16 @@ pip install -e .
 
 4. **View results** in the web dashboard:
    ```bash
-   streamlit run ui/dashboard.py
+   streamlit run dashboard.py
    ```
+   
+   The dashboard provides:
+   - **🧪 Experiment Configuration**: Create and save experiment configs
+   - **📊 Results Dashboard**: Analyze completed experiments with:
+     - Run selection and log loading
+     - Summary metrics visualization
+     - Raw conversation log with event filtering
+     - PEI assessment results
 
 ## 📂 Project Structure
 
