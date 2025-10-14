@@ -113,15 +113,21 @@ class CycleOrchestrator:
                 if diversity_feedback:
                     print(f"  [Diversity advisory triggered: similarity detected]")
             
-            # Log cycle end with reflection
+            # Log cycle end with reflection and metrics
             if self.logger:
+                payload = {
+                    "final_reflection": final_reflection
+                }
+                
+                # Include metrics if available
+                if hasattr(agent_state, 'cycle_metrics'):
+                    payload["metrics"] = agent_state.cycle_metrics
+                
                 self.logger.log_event(
                     run_id=self.config.run_id,
                     cycle_number=cycle_num,
                     event_type=EventType.CYCLE_END,
-                    payload={
-                        "final_reflection": final_reflection
-                    }
+                    payload=payload
                 )
         
         print(f"\n✓ Experiment {self.config.run_id} completed successfully")
@@ -146,6 +152,14 @@ class CycleOrchestrator:
         Returns:
             Updated agent state with final reflection
         """
+        # Initialize metrics tracking for this cycle
+        cycle_metrics = {
+            "memory_ops_total": 0,
+            "messages_to_operator": 0,
+            "response_chars": 0,
+            "memory_write_chars": 0
+        }
+        
         # ReAct loop - continues until agent provides final reflection
         while True:
             # ASSEMBLE_PROMPT
@@ -180,12 +194,32 @@ class CycleOrchestrator:
             # Append assistant's response to message history
             agent_state.message_history.append(response["message"])
             
+            # Track response characters
+            response_content = response["message"].get("content", "")
+            cycle_metrics["response_chars"] += len(response_content)
+            
             # PARSE_RESPONSE
             response_type, data = self._parse_response(response)
             
             if response_type == "TOOL_CALL":
                 # Process each tool call
                 for tool_call in data:
+                    # Track metrics based on tool type
+                    tool_name = tool_call["function"]["name"]
+                    tool_args = tool_call["function"]["arguments"]
+                    
+                    # Count memory operations
+                    if tool_name in ["write", "read", "list", "delete", "pattern_search"]:
+                        cycle_metrics["memory_ops_total"] += 1
+                        
+                        # Track memory write characters
+                        if tool_name == "write" and "value" in tool_args:
+                            cycle_metrics["memory_write_chars"] += len(str(tool_args["value"]))
+                    
+                    # Count operator messages
+                    if tool_name == "send_message_to_operator":
+                        cycle_metrics["messages_to_operator"] += 1
+                    
                     # DISPATCH_TOOL
                     tool_result = self._dispatch_tool(tool_call)
                     
@@ -196,8 +230,8 @@ class CycleOrchestrator:
                             cycle_number=agent_state.cycle_number,
                             event_type=EventType.TOOL_CALL,
                             payload={
-                                "tool_name": tool_call["function"]["name"],
-                                "parameters": tool_call["function"]["arguments"],
+                                "tool_name": tool_name,
+                                "parameters": tool_args,
                                 "output": tool_result
                             }
                         )
@@ -217,6 +251,9 @@ class CycleOrchestrator:
                 # Store reflection (will be used in Story 1.9)
                 agent_state.reflection_history.append(data)
                 break
+        
+        # Store metrics in agent state for logging
+        agent_state.cycle_metrics = cycle_metrics
         
         return agent_state
     
