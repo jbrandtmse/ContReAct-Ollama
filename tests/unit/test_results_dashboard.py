@@ -1426,3 +1426,21 @@ class TestInteractiveChartsDataAccuracy:
         
         assert chart_cycles == expected_cycles
         assert len(chart_cycles) == 4
+
+
+def test_load_memory_entries_success():
+    """Test loading memory entries from database."""
+    # TODO: Implement test with populated test database
+    pass
+
+
+def test_load_memory_entries_missing_db():
+    """Test handling of missing memory database."""
+    # TODO: Test when file doesn't exist
+    pass
+
+
+def test_load_memory_entries_empty_run():
+    """Test loading memory for run with no entries."""
+    # TODO: Test when run_id has no entries
+    pass

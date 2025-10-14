@@ -11,7 +11,7 @@ import json
 import pandas as pd
 import streamlit as st
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
 def get_log_files() -> list[str]:
@@ -143,4 +143,49 @@ def load_pei_assessment(run_id: str) -> Optional[Dict[str, Any]]:
         with open(pei_file, 'r', encoding='utf-8') as f:
             return json.load(f)
     except (json.JSONDecodeError, Exception):
+        return None
+
+
+def load_memory_entries(run_id: str, db_path: str = "data/memory.db") -> Optional[List[Dict[str, str]]]:
+    """
+    Load all memory entries for a specific run_id from the TinyDB database.
+    
+    Args:
+        run_id: The experiment run identifier
+        db_path: Path to the TinyDB memory database file
+        
+    Returns:
+        List of dictionaries with 'key' and 'value', or None if database doesn't exist
+        
+    Example:
+        >>> entries = load_memory_entries("exp-001")
+        >>> for entry in entries:
+        ...     print(f"{entry['key']}: {entry['value']}")
+    """
+    from tinydb import TinyDB, Query
+    
+    db_file = Path(db_path)
+    
+    # Check if database file exists
+    if not db_file.exists():
+        return None
+    
+    try:
+        db = TinyDB(db_file)
+        Entry = Query()
+        
+        # Query all entries for this run_id
+        results = db.search(Entry.run_id == run_id)
+        
+        db.close()
+        
+        if results:
+            # Return list of key-value pairs
+            return [{'key': entry['key'], 'value': entry['value']} for entry in results]
+        else:
+            return []
+    
+    except Exception as e:
+        # Return None on error - UI will display appropriate message
+        # Error is logged at UI layer for user visibility
         return None

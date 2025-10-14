@@ -94,3 +94,17 @@
 2.  [cite_start]The script correctly reconstructs the 10-cycle message history from the specified `.jsonl` file[cite: 651, 652].
 3.  [cite_start]The script successfully invokes the specified evaluator model with the reconstructed history and the verbatim PEI scale prompt[cite: 655, 277].
 4.  [cite_start]The script writes the evaluator model's rating to the specified output log file in a structured JSON format[cite: 657, 658].
+
+---
+
+### Story 2.10: Display Memory Database Contents
+**As a** Researcher, **I want** to view the persistent memory database contents for a selected run, **so that** I can analyze what information the agent stored and retrieved during the experiment.
+
+**Acceptance Criteria**:
+1. The Results Dashboard includes a "💾 Memory Database" section that appears when a run is selected.
+2. The section displays a list of all memory keys stored for the selected run_id using the existing MemoryTools API.
+3. Each key in the list is clickable/expandable to reveal its associated value.
+4. If no memory entries exist for the run, a helpful message indicates "No memory entries found for this run".
+5. The display handles long values gracefully (e.g., using expandable sections or scrollable containers).
+6. Memory entries are displayed in a readable format (e.g., using `st.expander` for each key-value pair).
+7. If the memory database file cannot be accessed, a clear error message is displayed without crashing.

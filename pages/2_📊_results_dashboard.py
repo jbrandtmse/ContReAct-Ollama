@@ -20,7 +20,8 @@ from contreact_ollama.ui_utils import (
     load_log_file,
     extract_metrics_from_dataframe,
     calculate_summary_metrics,
-    load_pei_assessment
+    load_pei_assessment,
+    load_memory_entries
 )
 
 
@@ -169,6 +170,30 @@ if 'run_data' in st.session_state:
           --output logs/{st.session_state.current_run}_pei.json
         ```
         """)
+    
+    st.divider()
+    
+    # Memory Database Viewer Section
+    st.subheader("💾 Memory Database")
+    
+    # Load memory entries for selected run
+    memory_entries = load_memory_entries(st.session_state.current_run)
+    
+    if memory_entries is not None:
+        if len(memory_entries) > 0:
+            st.success(f"✅ Found {len(memory_entries)} memory entries")
+            
+            # Display each key-value pair in expandable sections
+            for entry in memory_entries:
+                key = entry['key']
+                value = entry['value']
+                
+                with st.expander(f"🔑 {key}"):
+                    st.markdown(value)
+        else:
+            st.info("No memory entries found for this run")
+    else:
+        st.warning("Memory database file not found. Agents may not have used memory storage in this run.")
     
     st.divider()
     
