@@ -144,7 +144,12 @@ def test_execute_chat_completion_calls_client(mock_ollama_client):
     """Test that execute_chat_completion calls ollama client.chat with correct params."""
     # Arrange
     mock_instance = Mock()
-    mock_response = {"message": {"role": "assistant", "content": "Hello"}}
+    mock_message = Mock()
+    mock_message.role = "assistant"
+    mock_message.content = "Hello"
+    mock_message.tool_calls = None
+    mock_response = Mock()
+    mock_response.message = mock_message
     mock_instance.chat.return_value = mock_response
     mock_ollama_client.return_value = mock_instance
     
@@ -169,19 +174,20 @@ def test_execute_chat_completion_calls_client(mock_ollama_client):
         tools=tools,
         options=options
     )
-    assert result == mock_response
+    assert result["message"]["role"] == "assistant"
+    assert result["message"]["content"] == "Hello"
 
 
 def test_execute_chat_completion_returns_response(mock_ollama_client):
     """Test that execute_chat_completion returns response from ollama client."""
     # Arrange
     mock_instance = Mock()
-    mock_response = {
-        "message": {
-            "role": "assistant",
-            "content": "Test response"
-        }
-    }
+    mock_message = Mock()
+    mock_message.role = "assistant"
+    mock_message.content = "Test response"
+    mock_message.tool_calls = None
+    mock_response = Mock()
+    mock_response.message = mock_message
     mock_instance.chat.return_value = mock_response
     mock_ollama_client.return_value = mock_instance
     
@@ -196,7 +202,7 @@ def test_execute_chat_completion_returns_response(mock_ollama_client):
     )
     
     # Assert
-    assert result == mock_response
+    assert result["message"]["role"] == "assistant"
     assert result["message"]["content"] == "Test response"
 
 
@@ -225,19 +231,23 @@ def test_execute_chat_completion_with_tool_calls(mock_ollama_client):
     """Test that execute_chat_completion handles response with tool calls."""
     # Arrange
     mock_instance = Mock()
-    mock_response = {
-        "message": {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "function": {
-                        "name": "write",
-                        "arguments": {"key": "test", "value": "data"}
-                    }
-                }
-            ]
-        }
-    }
+    mock_message = Mock()
+    mock_message.role = "assistant"
+    mock_message.content = ""
+    
+    # Create mock tool call
+    mock_tool_call = Mock()
+    mock_tool_call.id = "call_456"
+    mock_function = Mock()
+    mock_function.name = "write"
+    mock_function.arguments = {"key": "test", "value": "data"}
+    mock_tool_call.function = mock_function
+    
+    mock_message.tool_calls = [mock_tool_call]
+    
+    mock_response = Mock()
+    mock_response.message = mock_message
+    
     mock_instance.chat.return_value = mock_response
     mock_ollama_client.return_value = mock_instance
     
@@ -254,3 +264,164 @@ def test_execute_chat_completion_with_tool_calls(mock_ollama_client):
     # Assert
     assert "tool_calls" in result["message"]
     assert len(result["message"]["tool_calls"]) == 1
+    assert result["message"]["tool_calls"][0]["function"]["name"] == "write"
+    assert result["message"]["tool_calls"][0]["function"]["arguments"]["key"] == "test"
+
+
+def test_execute_chat_completion_malformed_tool_call_with_unicode(mock_ollama_client, capsys):
+    """Test graceful degradation when model produces malformed tool call with unicode escape sequences."""
+    # Arrange
+    mock_instance = Mock()
+    # Simulate Ollama server-side parsing error with unicode (Greek zeta character)
+    error_msg = (
+        "error parsing tool call: raw='{\"message\":\"The Riemann zeta function \\u03b6(s) "
+        "is defined as...\"}', err=invalid character 'i' in string escape code (status code: 500)"
+    )
+    mock_instance.chat.side_effect = ollama.ResponseError(error_msg)
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    # Act
+    result = interface.execute_chat_completion(
+        model_name="llama3:latest",
+        messages=[],
+        tools=[],
+        options={}
+    )
+    
+    # Assert - should return text response with extracted content
+    assert result["message"]["role"] == "assistant"
+    assert "Riemann zeta function" in result["message"]["content"]
+    
+    # Verify warning was printed
+    captured = capsys.readouterr()
+    assert "WARNING: Model produced malformed tool call" in captured.out
+    assert "Degrading to text response" in captured.out
+
+
+def test_execute_chat_completion_malformed_tool_call_with_complex_numbers(mock_ollama_client, capsys):
+    """Test graceful degradation when model produces malformed tool call with mathematical notation."""
+    # Arrange
+    mock_instance = Mock()
+    # Simulate Ollama server-side parsing error with complex number notation
+    error_msg = (
+        "error parsing tool call: raw='{\"message\":\"The first few non-trivial zeros are "
+        "approximately 0.5 ± 14.134725i, 0.5 ± 21.022039i\"}', "
+        "err=invalid character 'i' in string escape code (status code: 500)"
+    )
+    mock_instance.chat.side_effect = ollama.ResponseError(error_msg)
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    # Act
+    result = interface.execute_chat_completion(
+        model_name="llama3:latest",
+        messages=[],
+        tools=[],
+        options={}
+    )
+    
+    # Assert - should return text response with extracted content
+    assert result["message"]["role"] == "assistant"
+    assert "14.134725i" in result["message"]["content"]
+    assert "non-trivial zeros" in result["message"]["content"]
+    
+    # Verify warning was printed
+    captured = capsys.readouterr()
+    assert "WARNING: Model produced malformed tool call" in captured.out
+
+
+def test_execute_chat_completion_malformed_tool_call_extraction_fails(mock_ollama_client, capsys):
+    """Test fallback when content extraction from malformed tool call fails."""
+    # Arrange
+    mock_instance = Mock()
+    # Simulate parsing error with content that can't be extracted
+    error_msg = "error parsing tool call: raw='invalid json format', err=unexpected token"
+    mock_instance.chat.side_effect = ollama.ResponseError(error_msg)
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    # Act
+    result = interface.execute_chat_completion(
+        model_name="llama3:latest",
+        messages=[],
+        tools=[],
+        options={}
+    )
+    
+    # Assert - should return generic error message
+    assert result["message"]["role"] == "assistant"
+    assert "Error: Model produced malformed output" in result["message"]["content"]
+    
+    # Verify warning was printed
+    captured = capsys.readouterr()
+    assert "WARNING: Model produced malformed tool call" in captured.out
+
+
+def test_execute_chat_completion_non_tool_call_error_reraises(mock_ollama_client):
+    """Test that non-tool-call ResponseErrors are re-raised."""
+    # Arrange
+    mock_instance = Mock()
+    # Simulate a different type of ResponseError (not tool call parsing)
+    error_msg = "Model not found: llama3:latest"
+    mock_instance.chat.side_effect = ollama.ResponseError(error_msg)
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    # Act & Assert - should re-raise the error
+    with pytest.raises(ollama.ResponseError) as exc_info:
+        interface.execute_chat_completion(
+            model_name="llama3:latest",
+            messages=[],
+            tools=[],
+            options={}
+        )
+    
+    assert "Model not found" in str(exc_info.value)
+
+
+def test_execute_chat_completion_valid_tool_call_still_works(mock_ollama_client):
+    """Regression test: Verify valid tool calls still work after error handling changes."""
+    # Arrange
+    mock_instance = Mock()
+    mock_message = Mock()
+    mock_message.role = "assistant"
+    mock_message.content = ""
+    
+    # Create mock tool call
+    mock_tool_call = Mock()
+    mock_tool_call.id = "call_123"
+    mock_function = Mock()
+    mock_function.name = "send_message_to_operator"
+    mock_function.arguments = {"message": "Hello operator"}
+    mock_tool_call.function = mock_function
+    
+    mock_message.tool_calls = [mock_tool_call]
+    
+    mock_response = Mock()
+    mock_response.message = mock_message
+    
+    mock_instance.chat.return_value = mock_response
+    mock_ollama_client.return_value = mock_instance
+    
+    interface = OllamaInterface()
+    
+    # Act
+    result = interface.execute_chat_completion(
+        model_name="llama3:latest",
+        messages=[],
+        tools=[{"type": "function", "function": {"name": "send_message_to_operator"}}],
+        options={}
+    )
+    
+    # Assert - should correctly process valid tool call
+    assert "message" in result
+    assert result["message"]["role"] == "assistant"
+    assert "tool_calls" in result["message"]
+    assert len(result["message"]["tool_calls"]) == 1
+    assert result["message"]["tool_calls"][0]["function"]["name"] == "send_message_to_operator"
+    assert result["message"]["tool_calls"][0]["function"]["arguments"]["message"] == "Hello operator"

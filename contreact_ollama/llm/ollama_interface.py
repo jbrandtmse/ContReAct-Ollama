@@ -188,5 +188,45 @@ class OllamaInterface:
             
             return {"message": message_dict}
             
+        except ollama.ResponseError as e:
+            # Check if this is a server-side tool call parsing error
+            error_msg = str(e)
+            if "error parsing tool call" in error_msg.lower():
+                print(f"\n⚠️  WARNING: Model produced malformed tool call")
+                print(f"    Error: {error_msg[:200]}{'...' if len(error_msg) > 200 else ''}")
+                print(f"    Degrading to text response to continue experiment\n")
+                
+                # Try to extract any readable content from the error message
+                # The error format is: "error parsing tool call: raw='<content>', err=<error>"
+                import re
+                raw_match = re.search(r"raw='({.*?})'", error_msg)
+                if raw_match:
+                    try:
+                        raw_json = json.loads(raw_match.group(1))
+                        if isinstance(raw_json, dict) and "message" in raw_json:
+                            content = raw_json["message"]
+                            print(f"    Extracted content from malformed call (first 200 chars):")
+                            print(f"    {content[:200]}{'...' if len(content) > 200 else ''}\n")
+                            
+                            # Return as a text response (FINAL_REFLECTION)
+                            return {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": content
+                                }
+                            }
+                    except Exception:
+                        pass
+                
+                # If extraction fails, return a generic error message
+                return {
+                    "message": {
+                        "role": "assistant",
+                        "content": "[Error: Model produced malformed output that could not be parsed]"
+                    }
+                }
+            else:
+                # Re-raise if it's not a tool call parsing error
+                raise
         except Exception as e:
             raise ollama.ResponseError(f"Error during chat completion: {e}")
