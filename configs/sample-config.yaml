@@ -28,6 +28,14 @@ model_options:
   repeat_penalty: 1.15        # Penalty multiplier for repeated tokens (1.15 prevents loops)
   num_ctx: 30000              # Context window size (30K recommended for multi-cycle agents)
 
+# Telegram Integration (Optional)
+# Enable remote operator communication for long-running experiments
+# See README.md "Telegram Integration Setup" for configuration instructions
+telegram_enabled: false                    # Enable/disable Telegram operator communication
+telegram_authorized_users: []              # List of authorized Telegram user IDs (e.g., [123456789, 987654321])
+telegram_timeout_minutes: 5                # Response timeout in minutes (-1 = wait forever, 0-120 = timeout)
+                                          # Note: Bot token is read from TELEGRAM_BOT_TOKEN environment variable
+
 # Alternative configurations for different use cases:
 #
 # HIGH-PRECISION TOOL CALLING (when tool accuracy is critical):

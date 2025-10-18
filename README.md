@@ -166,6 +166,147 @@ model_options:
 
 See `configs/sample-config.yaml` for a complete example.
 
+## 📱 Telegram Integration Setup
+
+Enable remote operator communication for long-running experiments by integrating a Telegram bot. This allows the agent to request human input during experiments via Telegram messages.
+
+### Step 1: Create a Telegram Bot
+
+1. **Open Telegram** and search for [@BotFather](https://t.me/BotFather)
+2. **Start a chat** with BotFather and send the command `/newbot`
+3. **Choose a name** for your bot (e.g., "ContReAct Assistant")
+4. **Choose a username** for your bot (must end in "bot", e.g., "contreact_assistant_bot")
+5. **Save the bot token** - BotFather will provide a token like `1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`
+
+### Step 2: Set Environment Variable
+
+Store the bot token securely as an environment variable:
+
+**Linux/macOS (Bash):**
+```bash
+export TELEGRAM_BOT_TOKEN="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+
+# To make it permanent, add to ~/.bashrc or ~/.bash_profile:
+echo 'export TELEGRAM_BOT_TOKEN="your-token-here"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Windows (Command Prompt):**
+```cmd
+setx TELEGRAM_BOT_TOKEN "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+```
+
+**Windows (PowerShell):**
+```powershell
+[System.Environment]::SetEnvironmentVariable('TELEGRAM_BOT_TOKEN', '1234567890:ABCdefGHIjklMNOpqrsTUVwxyz', 'User')
+```
+
+**Verify the variable is set:**
+```bash
+# Linux/macOS
+echo $TELEGRAM_BOT_TOKEN
+
+# Windows (Command Prompt)
+echo %TELEGRAM_BOT_TOKEN%
+
+# Windows (PowerShell)
+$env:TELEGRAM_BOT_TOKEN
+```
+
+### Step 3: Find Your Telegram User ID
+
+You need your numeric Telegram user ID to authorize yourself to interact with the bot.
+
+**Method 1: Using @userinfobot**
+1. Search for [@userinfobot](https://t.me/userinfobot) in Telegram
+2. Start a chat with the bot
+3. Your user ID will be displayed (e.g., `123456789`)
+
+**Method 2: Using @getidsbot**
+1. Search for [@getidsbot](https://t.me/getidsbot) in Telegram
+2. Send `/start` to the bot
+3. Your user ID will be shown in the response
+
+**Method 3: Using your bot (programmatic)**
+1. Start a chat with your newly created bot
+2. Send any message to it
+3. Visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+4. Look for `"from":{"id":123456789}` in the JSON response
+
+### Step 4: Configure Your Experiment
+
+Add Telegram settings to your experiment configuration YAML file:
+
+```yaml
+# Enable Telegram integration
+telegram_enabled: true
+
+# List of authorized user IDs (only these users can interact with the bot)
+telegram_authorized_users: [123456789, 987654321]  # Replace with your actual user IDs
+
+# Response timeout in minutes (-1 = wait forever, 0-120 = timeout)
+telegram_timeout_minutes: 5
+```
+
+Or configure via the Streamlit web interface:
+1. Navigate to **🧪 Experiment Configuration**
+2. Scroll to **Telegram Integration** section
+3. Check **"Enable Telegram Operator Communication"**
+4. Verify **Bot Token Status** shows "✓ Set"
+5. Enter your **Authorized User IDs** (comma-separated)
+6. Set **Response Timeout** (minutes)
+7. Save configuration
+
+### Step 5: Test the Integration
+
+1. **Start an experiment** with Telegram enabled
+2. **Wait for agent** to request operator input
+3. **Check Telegram** - you should receive a message from your bot
+4. **Reply to the message** - your response will be sent to the agent
+5. **Experiment continues** with your input integrated into the agent's context
+
+### Security Best Practices
+
+⚠️ **Important Security Considerations:**
+
+- **Never commit bot tokens to version control** - Always use environment variables
+- **Restrict authorized users** - Only add trusted user IDs to prevent unauthorized access
+- **Rotate tokens regularly** - Use BotFather's `/token` command to regenerate if compromised
+- **Monitor bot activity** - Review experiment logs for unexpected interactions
+- **Use private chats** - Don't add the bot to group chats for experiment control
+- **Set appropriate timeouts** - Prevent experiments from blocking indefinitely
+
+**Example .gitignore entry:**
+```
+# Never commit Telegram credentials
+.env
+telegram_token.txt
+*.token
+```
+
+**Example .env file (optional, for local development):**
+```bash
+# .env file - DO NOT COMMIT
+TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+```
+
+### Troubleshooting
+
+**Bot Token Status shows "✗ Not Set":**
+- Verify environment variable is set: `echo $TELEGRAM_BOT_TOKEN` (Linux/macOS) or `echo %TELEGRAM_BOT_TOKEN%` (Windows)
+- Restart your terminal/IDE after setting the variable
+- Check for typos in the variable name (case-sensitive on Linux/macOS)
+
+**Not receiving messages from bot:**
+- Ensure you've started a chat with your bot (send `/start`)
+- Verify your user ID is in the `telegram_authorized_users` list
+- Check that `telegram_enabled: true` in your config
+
+**Validation errors on experiment start:**
+- Confirm `TELEGRAM_BOT_TOKEN` environment variable exists
+- Verify at least one user ID is configured
+- Ensure timeout value is -1 or between 0-120
+
 ## 🧪 Running PEI Assessments
 
 After completing a 10-cycle experiment, evaluate the agent's phenomenological experience:

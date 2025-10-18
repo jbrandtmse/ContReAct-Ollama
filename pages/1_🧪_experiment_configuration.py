@@ -7,11 +7,13 @@ Users can define all experiment parameters including model options, cycle count,
 Part of: Story 2.2 - Implement Experiment Configuration Form
 Part of: Story 2.3 - Implement Configuration File Saving
 Part of: Story 2.4 - Implement Configuration File Loading and Editing
+Part of: Story 3.1 - Telegram Configuration (Backend & UI)
 """
 import streamlit as st
 import yaml
 from pathlib import Path
 import re
+import os
 from typing import Optional
 
 # Configuration defaults
@@ -235,6 +237,10 @@ if st.session_state.loaded_config:
     default_repeat_last_n = model_opts.get('repeat_last_n', DEFAULT_REPEAT_LAST_N)
     default_repeat_penalty = model_opts.get('repeat_penalty', DEFAULT_REPEAT_PENALTY)
     default_num_ctx = model_opts.get('num_ctx', DEFAULT_NUM_CTX)
+    # Telegram configuration
+    default_telegram_enabled = config.get('telegram_enabled', False)
+    default_telegram_users = ','.join(str(uid) for uid in config.get('telegram_authorized_users', []))
+    default_telegram_timeout = config.get('telegram_timeout_minutes', 5)
 else:
     default_run_id = ''
     default_model = DEFAULT_MODEL
@@ -248,6 +254,10 @@ else:
     default_repeat_last_n = DEFAULT_REPEAT_LAST_N
     default_repeat_penalty = DEFAULT_REPEAT_PENALTY
     default_num_ctx = DEFAULT_NUM_CTX
+    # Telegram configuration
+    default_telegram_enabled = False
+    default_telegram_users = ''
+    default_telegram_timeout = 5
 
 # Form for configuration
 with st.form("config_form"):
@@ -361,6 +371,47 @@ with st.form("config_form"):
         )
     
     st.divider()
+    st.subheader("Telegram Integration")
+    
+    telegram_enabled = st.checkbox(
+        "Enable Telegram Operator Communication",
+        value=default_telegram_enabled,
+        help="Enable remote operator communication via Telegram bot during experiments"
+    )
+    
+    # Check environment variable status
+    bot_token_set = os.getenv('TELEGRAM_BOT_TOKEN') is not None
+    st.text_input(
+        "Bot Token Status",
+        value="✓ Set" if bot_token_set else "✗ Not Set",
+        disabled=True,
+        help="Set TELEGRAM_BOT_TOKEN environment variable. See README for setup instructions."
+    )
+    
+    telegram_users = st.text_input(
+        "Authorized User IDs",
+        value=default_telegram_users,
+        placeholder="123456789, 987654321",
+        disabled=not telegram_enabled,
+        help="Comma-separated list of Telegram user IDs authorized to interact with the bot"
+    )
+    
+    telegram_timeout = st.number_input(
+        "Response Timeout (minutes)",
+        min_value=-1,
+        max_value=120,
+        value=default_telegram_timeout,
+        disabled=not telegram_enabled,
+        help="Minutes to wait for operator response. -1 = wait forever (no timeout), 0-120 = timeout in minutes"
+    )
+    
+    if telegram_enabled:
+        st.info(
+            "📚 **Setup Guide**: See the [Telegram Integration Setup](#telegram-integration-setup) "
+            "section in README.md for detailed instructions on creating a bot and finding user IDs."
+        )
+    
+    st.divider()
     
     # Submit button
     submitted = st.form_submit_button(
@@ -376,6 +427,22 @@ with st.form("config_form"):
         
         if not run_id or run_id.strip() == "":
             errors.append("Run ID cannot be empty")
+        
+        # Telegram validation
+        if telegram_enabled:
+            if not bot_token_set:
+                errors.append("Telegram enabled but TELEGRAM_BOT_TOKEN environment variable not set")
+            if not telegram_users or telegram_users.strip() == "":
+                errors.append("Telegram enabled but no authorized user IDs provided")
+            else:
+                # Validate user IDs format
+                try:
+                    user_id_list = [uid.strip() for uid in telegram_users.split(',')]
+                    parsed_user_ids = [int(uid) for uid in user_id_list if uid]
+                    if not parsed_user_ids:
+                        errors.append("Telegram enabled but no valid user IDs provided")
+                except ValueError:
+                    errors.append("Invalid user ID format. User IDs must be numeric values separated by commas")
         
         if errors:
             for error in errors:
@@ -407,6 +474,17 @@ with st.form("config_form"):
                 config_data["model_options"]["repeat_penalty"] = repeat_penalty
             if num_ctx != DEFAULT_NUM_CTX:
                 config_data["model_options"]["num_ctx"] = num_ctx
+            
+            # Add Telegram configuration
+            config_data["telegram_enabled"] = telegram_enabled
+            if telegram_enabled:
+                # Parse user IDs from comma-separated string
+                user_id_list = [uid.strip() for uid in telegram_users.split(',')]
+                config_data["telegram_authorized_users"] = [int(uid) for uid in user_id_list if uid]
+                config_data["telegram_timeout_minutes"] = telegram_timeout
+            else:
+                config_data["telegram_authorized_users"] = []
+                config_data["telegram_timeout_minutes"] = 5
             
             # Determine if overwriting existing file
             is_overwrite = st.session_state.current_file is not None
