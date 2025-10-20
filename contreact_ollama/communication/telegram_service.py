@@ -6,9 +6,11 @@ agents to send messages and receive responses from authorized operators
 during long-running experiments.
 """
 
+import asyncio
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from telegram import Bot, Update
@@ -52,13 +54,23 @@ class TelegramOperatorChannel:
         self.timeout_minutes = timeout_minutes
         self._pending_response: Optional[str] = None
         self._last_update_id: Optional[int] = None
-
-        try:
-            self.bot = Bot(token=token)
-            logger.info("TelegramOperatorChannel initialized successfully")
-        except TelegramError as e:
-            logger.error(f"Failed to initialize Telegram bot: {e}")
-            raise ConnectionError(f"Failed to initialize Telegram bot: {e}")
+        
+        # Store token instead of Bot instance
+        self._token = token
+        
+        logger.info("TelegramOperatorChannel initialized successfully")
+    
+    def _run_async(self, async_func):
+        """
+        Run an async function in a new event loop using asyncio.run().
+        
+        Args:
+            async_func: Async function to run (not a coroutine, but a callable that returns one)
+            
+        Returns:
+            Result of the async function
+        """
+        return asyncio.run(async_func())
 
     def check_connection(self) -> bool:
         """
@@ -73,7 +85,12 @@ class TelegramOperatorChannel:
             ...     print("Connection OK")
         """
         try:
-            bot_info = self.bot.get_me()
+            async def _check():
+                async with Bot(self._token) as bot:
+                    bot_info = await bot.get_me()
+                    return bot_info
+            
+            bot_info = self._run_async(_check)
             logger.info(f"Connection check successful. Bot: {bot_info.first_name}")
             return True
         except (NetworkError, TelegramError) as e:
@@ -110,7 +127,11 @@ class TelegramOperatorChannel:
 
         for user_id in self.authorized_users:
             try:
-                self.bot.send_message(chat_id=user_id, text=formatted_message)
+                async def _send():
+                    async with Bot(self._token) as bot:
+                        await bot.send_message(chat_id=user_id, text=formatted_message)
+                
+                self._run_async(_send)
                 successful_sends += 1
                 logger.debug(f"Message sent successfully to user {user_id}")
             except NetworkError as e:
@@ -132,7 +153,38 @@ class TelegramOperatorChannel:
                 raise RuntimeError("No authorized users configured")
 
         logger.info(f"Message sent successfully to {successful_sends} user(s)")
+        
+        # Mark all existing messages as read before waiting for new response
+        # This ensures we only receive messages sent AFTER our message
+        self._mark_existing_as_read()
 
+    def _mark_existing_as_read(self) -> None:
+        """
+        Mark all existing Telegram updates as read.
+        
+        This advances the update offset to skip any messages that were
+        already in the chat before we started waiting for a response.
+        """
+        try:
+            async def _clear_updates():
+                async with Bot(self._token) as bot:
+                    updates = await bot.get_updates(
+                        offset=self._last_update_id + 1 if self._last_update_id else None,
+                        timeout=0,  # Don't wait, just get existing
+                    )
+                    return updates
+            
+            updates = self._run_async(_clear_updates)
+            
+            # Mark all these updates as read
+            if updates:
+                self._last_update_id = updates[-1].update_id
+                logger.debug(f"Marked {len(updates)} existing updates as read")
+                
+        except Exception as e:
+            # Non-fatal - log but don't raise
+            logger.warning(f"Failed to mark existing updates as read: {e}")
+    
     def wait_for_response(self, timeout_minutes: Optional[int] = None) -> str:
         """
         Wait for operator response via Telegram with timeout.
@@ -167,10 +219,14 @@ class TelegramOperatorChannel:
         while True:
             try:
                 # Get updates from Telegram
-                updates = self.bot.get_updates(
-                    offset=self._last_update_id + 1 if self._last_update_id else None,
-                    timeout=30,
-                )
+                async def _get_updates():
+                    async with Bot(self._token) as bot:
+                        return await bot.get_updates(
+                            offset=self._last_update_id + 1 if self._last_update_id else None,
+                            timeout=30,
+                        )
+                
+                updates = self._run_async(_get_updates)
 
                 for update in updates:
                     self._last_update_id = update.update_id
