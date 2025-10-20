@@ -33,6 +33,7 @@ dependencies = [
     "plotly>=5.22.0,<6.0.0",
     "pandas>=2.2.2,<3.0.0",
     "pyyaml>=6.0,<7.0",
+    "python-telegram-bot>=20.0,<21.0.0",
 ]
 
 [project.optional-dependencies]

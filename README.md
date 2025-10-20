@@ -166,11 +166,32 @@ model_options:
 
 See `configs/sample-config.yaml` for a complete example.
 
-## 📱 Telegram Integration Setup
+## 📱 Telegram Integration for Remote Operator Communication
 
-Enable remote operator communication for long-running experiments by integrating a Telegram bot. This allows the agent to request human input during experiments via Telegram messages.
+### Overview
 
-### Step 1: Create a Telegram Bot
+The Telegram integration enables remote operator communication during long-running experiments. When enabled, agents can send messages and request input from authorized users via Telegram, allowing you to interact with experiments remotely without being at the terminal.
+
+**Benefits:**
+- **Remote Monitoring** - Receive agent messages on any device with Telegram
+- **Asynchronous Interaction** - Respond to agent requests at your convenience (within timeout)
+- **Multi-User Support** - Authorize multiple users to interact with experiments
+- **Secure Communication** - User ID-based authorization prevents unauthorized access
+
+**Optional Feature:** Telegram integration is completely optional. If not configured, the system automatically falls back to terminal-based operator communication.
+
+### Prerequisites
+
+Before setting up Telegram integration, ensure you have:
+
+1. **Telegram Account** - Download Telegram on your phone or use the web version
+2. **python-telegram-bot Library** - Automatically installed with this project's dependencies:
+   ```bash
+   pip install -e .  # Includes python-telegram-bot>=20.0
+   ```
+3. **Internet Connection** - Required for Telegram API communication
+
+### Creating Your Telegram Bot
 
 1. **Open Telegram** and search for [@BotFather](https://t.me/BotFather)
 2. **Start a chat** with BotFather and send the command `/newbot`
@@ -264,6 +285,34 @@ Or configure via the Streamlit web interface:
 3. **Check Telegram** - you should receive a message from your bot
 4. **Reply to the message** - your response will be sent to the agent
 5. **Experiment continues** with your input integrated into the agent's context
+
+### Fallback Behavior
+
+The system implements robust fallback behavior when Telegram communication fails:
+
+**Timeout Handling:**
+- If `telegram_timeout_minutes > 0`: Agent waits specified duration for response
+- If timeout expires: System logs warning and falls back to terminal input
+- If `telegram_timeout_minutes = -1`: Agent waits indefinitely (no timeout)
+
+**Connection Error Handling:**
+- **Initial Connection Check**: Bot verifies connectivity before first use
+- **Network Failures**: If Telegram API is unreachable, system immediately falls back to terminal
+- **Send Failures**: If message cannot be sent, operator is prompted at terminal instead
+- **Receive Failures**: If polling fails, system switches to terminal input mode
+
+**Automatic Fallback Scenarios:**
+1. `TELEGRAM_BOT_TOKEN` not set → Falls back to terminal immediately
+2. Bot initialization fails → Falls back to terminal immediately  
+3. Network error during send → Falls back to terminal for current cycle
+4. Timeout waiting for response → Falls back to terminal for current cycle
+5. No authorized users configured → Raises configuration error before experiment starts
+
+**Fallback Notifications:**
+- Console logs display fallback reason (WARNING level)
+- Experiment log records fallback event with error details
+- Terminal prompt displays: `[Telegram unavailable - using terminal input]`
+- Experiment continues normally using terminal communication
 
 ### Security Best Practices
 
