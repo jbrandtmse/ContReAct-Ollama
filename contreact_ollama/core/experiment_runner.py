@@ -163,7 +163,7 @@ class ExperimentRunner:
         services['memory_tools'] = memory_tools
         
         # Initialize tool dispatcher
-        tool_dispatcher = ToolDispatcher(memory_tools=memory_tools)
+        tool_dispatcher = ToolDispatcher(memory_tools=memory_tools, config=config)
         services['tool_dispatcher'] = tool_dispatcher
         
         # Initialize embedding service and similarity monitor

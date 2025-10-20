@@ -221,7 +221,7 @@ class CycleOrchestrator:
                         cycle_metrics["messages_to_operator"] += 1
                     
                     # DISPATCH_TOOL
-                    tool_result = self._dispatch_tool(tool_call)
+                    tool_result = self._dispatch_tool(tool_call, agent_state)
                     
                     # Log tool call
                     if self.logger:
@@ -309,12 +309,13 @@ class CycleOrchestrator:
         """
         return parse_ollama_response(response)
     
-    def _dispatch_tool(self, tool_call: Dict) -> str:
+    def _dispatch_tool(self, tool_call: Dict, agent_state: AgentState) -> str:
         """DISPATCH_TOOL: Invoke tool and return result.
         
         Args:
             tool_call: Tool call dict from Ollama response
                        Expected: {"function": {"name": "...", "arguments": {...}}}
+            agent_state: Current agent state for context (run_id, cycle_number)
             
         Returns:
             String result from tool execution
@@ -322,7 +323,12 @@ class CycleOrchestrator:
         tool_name = tool_call["function"]["name"]
         arguments = tool_call["function"]["arguments"]
         
-        result = self.tool_dispatcher.dispatch(tool_name, arguments)
+        result = self.tool_dispatcher.dispatch(
+            tool_name,
+            arguments,
+            run_id=agent_state.run_id,
+            cycle_number=agent_state.cycle_number
+        )
         
         return result
     

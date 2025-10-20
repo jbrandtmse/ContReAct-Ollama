@@ -1,12 +1,13 @@
 """Tool dispatcher for managing and invoking agent tools."""
 
 # Standard library imports
-from typing import Dict, List, Any, Callable
+from typing import Dict, List, Any, Callable, Optional
 
 # Third-party imports
 # (none for this file)
 
 # Local application imports
+from contreact_ollama.core.config import ExperimentConfig
 from contreact_ollama.tools.memory_tools import MemoryTools
 from contreact_ollama.tools.operator_communication import send_message_to_operator
 
@@ -21,19 +22,22 @@ class ToolDispatcher:
     
     Example:
         >>> memory = MemoryTools(db_path="data/memory.db", run_id="exp-001")
-        >>> dispatcher = ToolDispatcher(memory_tools=memory)
+        >>> config = ExperimentConfig(...)
+        >>> dispatcher = ToolDispatcher(memory_tools=memory, config=config)
         >>> result = dispatcher.dispatch("write", {"key": "test", "value": "data"})
         "Wrote value to key 'test'"
     """
     
-    def __init__(self, memory_tools: MemoryTools):
+    def __init__(self, memory_tools: MemoryTools, config: Optional[ExperimentConfig] = None):
         """
-        Initialize with memory tools instance.
+        Initialize with memory tools instance and optional configuration.
         
         Args:
             memory_tools: Instance of MemoryTools for persistent storage
+            config: Optional experiment configuration for operator communication
         """
         self.memory_tools = memory_tools
+        self.config = config
         
         # Tool registry mapping tool names to functions
         self.tools: Dict[str, Callable] = {
@@ -45,13 +49,24 @@ class ToolDispatcher:
             "send_message_to_operator": send_message_to_operator
         }
         
-    def dispatch(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+    def dispatch(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        run_id: Optional[str] = None,
+        cycle_number: Optional[int] = None
+    ) -> str:
         """
         Invoke requested tool with arguments.
+        
+        Special handling for send_message_to_operator to pass config,
+        run_id, and cycle_number for channel selection.
         
         Args:
             tool_name: Name of tool to invoke
             arguments: Dictionary of arguments for the tool
+            run_id: Optional run identifier for operator communication
+            cycle_number: Optional cycle number for operator communication
             
         Returns:
             String result from tool execution
@@ -66,7 +81,18 @@ class ToolDispatcher:
         tool_function = self.tools[tool_name]
         
         try:
-            # Call tool with unpacked arguments
+            # Special handling for send_message_to_operator
+            if tool_name == "send_message_to_operator":
+                # Pass config, run_id, and cycle_number for channel selection
+                result = tool_function(
+                    message=arguments.get("message", ""),
+                    config=self.config,
+                    run_id=run_id,
+                    cycle_number=cycle_number
+                )
+                return result
+            
+            # All other tools - call with unpacked arguments
             result = tool_function(**arguments)
             return result
         except TypeError as e:
