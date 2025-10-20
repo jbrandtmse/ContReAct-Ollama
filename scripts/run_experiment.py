@@ -17,6 +17,10 @@ from pathlib import Path
 
 # Third-party imports
 import yaml
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Local application imports
 from contreact_ollama.core.experiment_runner import ExperimentRunner
